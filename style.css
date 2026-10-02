@@ -1,0 +1,85 @@
+:root{
+  --bg:#0b0d10;--panel:#14181d;--panel2:#1b2027;--line:#2a313a;
+  --text:#e8ecf0;--dim:#8b96a3;--accent:#f5a623;--accent2:#ffd27a;--red:#e4432f;--green:#39d98a;
+  font-family:"Segoe UI",Roboto,"Helvetica Neue","Noto Sans JP",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);overflow:hidden}
+canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:none;background:#000}
+.hidden{display:none!important}
+button{font:inherit;cursor:pointer}
+input,select{font:inherit;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:6px 8px;width:100%}
+input[type=checkbox]{width:auto}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--dim)}
+.row{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0}
+.row label{flex:1;min-width:140px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 16px}
+.grid.ads{grid-template-columns:repeat(3,1fr)}
+h2{font-size:15px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0 0 12px;border-left:3px solid var(--accent);padding-left:10px}
+h3{font-size:13px;color:var(--dim);margin:16px 0 8px;letter-spacing:.08em}
+pre{font-size:11.5px;color:var(--dim);background:#0e1114;padding:10px;border-radius:4px;overflow:auto}
+details summary{cursor:pointer;color:var(--dim);font-size:13px;margin-top:10px}
+
+/* MENU */
+#menu{position:fixed;inset:0;overflow:auto;padding:28px 16px 40px;
+  background:radial-gradient(1200px 600px at 50% -10%,#1f2a35 0%,var(--bg) 60%);}
+#menu header{text-align:center;margin-bottom:20px}
+.logo{font-size:40px;font-weight:800;letter-spacing:.2em}
+.logo .brand{color:var(--accent)}
+.sub{color:var(--dim);font-size:13px;margin-top:4px}
+#menu main{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:1100px;margin:0 auto}
+@media(max-width:860px){#menu main{grid-template-columns:1fr}.grid,.grid.ads{grid-template-columns:1fr 1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mode{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:10px 12px;text-align:left;color:var(--text);transition:.12s}
+.mode:hover{border-color:var(--accent2)}
+.mode.sel{border-color:var(--accent);background:#2a2415;box-shadow:inset 0 0 0 1px var(--accent)}
+.mode b{display:block;font-size:14px}
+.mode span{display:block;font-size:12px;color:var(--dim);margin-top:3px}
+.mode .tag{display:inline-block;font-size:10px;color:var(--accent);margin-top:5px;letter-spacing:.1em}
+.primary{width:100%;margin-top:14px;padding:14px;font-size:16px;font-weight:700;letter-spacing:.06em;
+  background:var(--accent);color:#161616;border:0;border-radius:4px}
+.primary:hover{background:var(--accent2)}
+.note{font-size:12px;color:var(--dim);margin-top:10px;line-height:1.6}
+.best{font-size:12px;color:var(--dim);margin-top:10px}
+.sensinfo{margin-top:12px;font-size:13px;background:#0e1114;border-radius:4px;padding:10px;line-height:1.7;color:var(--accent2)}
+.sensinfo small{color:var(--dim)}
+footer{text-align:center;color:var(--dim);font-size:11px;margin-top:26px}
+footer a{color:var(--dim)}
+
+#results{position:fixed;inset:0;background:rgba(5,7,9,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;z-index:5}
+#results h2{font-size:32px;letter-spacing:.3em;border:0}
+#results-body{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 28px;min-width:320px;max-width:600px}
+#results-body .r{display:flex;justify-content:space-between;gap:30px;padding:6px 0;border-bottom:1px solid var(--line);font-size:15px}
+#results-body .r:last-child{border:0}
+#results-body .r b{color:var(--accent2)}
+#results .primary{max-width:400px}
+
+/* HUD */
+#hud{position:fixed;inset:0;pointer-events:none}
+#crosshair{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;
+  background:#fff;box-shadow:0 0 0 1px #000,0 0 6px rgba(0,0,0,.6)}
+#hud-top{position:absolute;top:14px;left:0;right:0;display:flex;justify-content:center;gap:10px}
+.hud-box{background:rgba(10,12,16,.72);border:1px solid rgba(255,255,255,.12);border-radius:3px;padding:5px 14px;min-width:96px;text-align:center}
+.hud-box .lbl{display:block;font-size:9px;letter-spacing:.2em;color:var(--dim)}
+.hud-box span:last-child{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+#hud-bottom{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:12px;color:#cfd6de;text-shadow:0 1px 2px #000}
+#hud-bottom .dim{color:var(--dim)}
+#hit-flash{position:absolute;inset:0;box-shadow:inset 0 0 0 0 transparent;transition:box-shadow .05s}
+#hit-flash.on{box-shadow:inset 0 0 120px rgba(245,166,35,.18)}
+
+/* Scope overlay */
+#scope-ov{position:absolute;inset:0}
+#scope-ov .ring{position:absolute;left:50%;top:50%;width:58vmin;height:58vmin;margin:-29vmin 0 0 -29vmin;border-radius:50%;
+  box-shadow:0 0 0 200vmax rgba(0,0,0,.82),inset 0 0 40px rgba(0,0,0,.9);border:3px solid #111}
+#scope-ov.holo .ring{width:70vmin;height:70vmin;margin:-35vmin 0 0 -35vmin;box-shadow:0 0 0 200vmax rgba(0,0,0,.55),inset 0 0 30px rgba(0,0,0,.6)}
+#scope-ov .dot{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:#ff2a2a;box-shadow:0 0 6px #f33}
+#scope-ov .postv,#scope-ov .posth{position:absolute;left:50%;top:50%;background:#111}
+#scope-ov .postv{width:3px;height:29vmin;margin-left:-1.5px;margin-top:4vmin}
+#scope-ov .posth{display:none}
+#scope-ov.acog .posth{display:block;width:58vmin;height:2px;margin:-1px 0 0 -29vmin}
+#scope-ov.holo .postv,#scope-ov.holo .posth{display:none}
+#scope-ov.holo .dot{width:4px;height:4px;box-shadow:0 0 0 10px transparent,0 0 0 11px rgba(255,40,40,.9),0 0 8px #f33}
+#crosshair.ads{display:none}
+.secondary{margin-top:10px;padding:10px 18px;background:transparent;color:var(--dim);border:1px solid var(--line);border-radius:4px;font-size:13px}
+.secondary:hover{color:var(--text);border-color:var(--dim)}
