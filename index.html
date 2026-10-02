@@ -3,8 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SIEGE AIM LAB — R6S Tracking Trainer</title>
-<meta name="description" content="R6S(レインボーシックス シージ)の感度・ADS倍率を忠実に再現したブラウザ動作のトラッキングエイム / 動体視力トレーナー">
+<title>SIEGE AIM LAB — R6S Aim Trainer</title>
+<meta name="description" content="R6S(レインボーシックス シージ)の感度・ADS倍率・移動・リコイルを再現したブラウザ動作のエイムトレーナー">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,34 +14,42 @@
 
 <!-- HUD (in-game) -->
 <div id="hud" class="hidden">
-  <div id="crosshair"></div>
+  <div id="crosshair"><i></i><i></i><i></i><i></i></div>
   <div id="scope-ov" class="hidden"><div class="ring"></div><div class="dot"></div><div class="postv"></div><div class="posth"></div></div>
   <div id="hud-top">
     <div class="hud-box"><span class="lbl">TIME</span><span id="h-time">60.0</span></div>
     <div class="hud-box"><span class="lbl">SCORE</span><span id="h-score">0</span></div>
-    <div class="hud-box"><span class="lbl">ON TARGET</span><span id="h-acc">0.0%</span></div>
+    <div class="hud-box"><span class="lbl">ACC</span><span id="h-acc">0.0%</span></div>
+    <div class="hud-box combat-only"><span class="lbl">KILLS</span><span id="h-kills">0</span></div>
     <div class="hud-box"><span class="lbl">FPS</span><span id="h-fps">0</span></div>
     <div class="hud-box"><span class="lbl">INPUT Hz</span><span id="h-hz">0</span></div>
   </div>
+  <div id="hud-bl"><span id="h-stance">STAND</span></div>
+  <div id="hud-br" class="combat-only"><span class="lbl">AR · 800RPM</span><span id="h-ammo">30 / ∞</span></div>
   <div id="hud-bottom">
     <span id="h-mode"></span> · <span id="h-sens"></span> · <span id="h-zoom"></span>
-    <span class="dim"> · ESC: メニュー · R: リスタート · 右クリック: ADS</span>
+    <span class="dim"> · WASD 移動 · Shift ダッシュ · C しゃがみ · Q/E リーン · R リロード · BackSpace リスタート · ESC メニュー</span>
   </div>
   <div id="hit-flash"></div>
 </div>
 
 <!-- MENU -->
 <div id="menu">
+  <div class="bg"></div>
   <header>
-    <div class="logo"><span class="brand">SIEGE</span> AIM LAB</div>
-    <div class="sub">Rainbow Six Siege 感度完全再現 · トラッキング &amp; 動体視力トレーナー · ブラウザ動作</div>
+    <div class="logo"><span class="brand">SIEGE</span><span class="sep"></span>AIM LAB</div>
+    <div class="sub">R6S 感度・移動・リコイル再現 / トラッキング &amp; 動体視力 / 近・中・遠距離 BOT 戦 — ブラウザで 360Hz+</div>
+    <div class="chips"><span>FULLSCREEN</span><span>RAW INPUT 8000Hz</span><span>UNCAPPED FPS</span><span>R6S SENS EXACT</span></div>
   </header>
 
   <main>
-    <section class="panel">
-      <h2>シナリオ</h2>
-      <div id="modes" class="modes"></div>
-      <div class="row">
+    <section class="panel modes-panel">
+      <h2><span class="num">01</span>シナリオ</h2>
+      <div class="group-title">COMBAT — 移動 · 射撃 · リコイル · カバー BOT</div>
+      <div id="modes-combat" class="modes"></div>
+      <div class="group-title">TRACKING — レーザー（リコイルなし）</div>
+      <div id="modes-track" class="modes"></div>
+      <div class="row opts">
         <label>難易度 <select id="difficulty">
           <option value="0.7">Easy</option>
           <option value="1" selected>Normal</option>
@@ -50,68 +60,100 @@
           <option value="30">30s</option>
           <option value="60" selected>60s</option>
           <option value="120">120s</option>
+          <option value="300">300s</option>
         </select></label>
       </div>
-      <button id="start" class="primary">▶ プレイ（クリックでフルスクリーン＆マウスロック）</button>
-      <div class="note">
-        初回クリックでフルスクリーン化＆マウスキャプチャ。ESC でメニューに戻ります。<br>
-        描画はモニターのリフレッシュレートに同期（360Hz以上のモニターで 360fps+）。マウス入力はブラウザの生イベント(pointerrawupdate / 加速無効)を使用し、1000Hz〜8000Hzのポーリングをそのまま反映します。
-      </div>
       <div id="best" class="best"></div>
+      <button id="start" class="primary"><span class="ico">▶</span> DEPLOY<small>クリックでフルスクリーン ＆ マウスロック</small></button>
+      <div class="keys">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動</div>
+        <div><kbd>Shift</kbd> ダッシュ</div>
+        <div><kbd>C</kbd>/<kbd>Ctrl</kbd> しゃがみ</div>
+        <div><kbd>Q</kbd><kbd>E</kbd> リーン</div>
+        <div><kbd>右クリック</kbd> ADS</div>
+        <div><kbd>R</kbd> リロード</div>
+        <div><kbd>BackSpace</kbd> リスタート</div>
+        <div><kbd>ESC</kbd> メニュー</div>
+      </div>
     </section>
 
     <section class="panel">
-      <h2>R6S 感度設定（ゲーム内と同じ値を入力）</h2>
-      <div class="grid">
-        <label>マウス DPI <input id="dpi" type="number" min="100" max="32000" step="50" value="800"></label>
-        <label>FOV（垂直, 60–90） <input id="fov" type="number" min="60" max="90" step="1" value="90"></label>
-        <label>水平感度 (1–100) <input id="sensH" type="number" min="1" max="100" step="1" value="10"></label>
-        <label>垂直感度 (1–100) <input id="sensV" type="number" min="1" max="100" step="1" value="10"></label>
-        <label title="GameSettings.ini の MouseSensitivityMultiplierUnit">MouseSensitivityMultiplierUnit <input id="msmu" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
-        <label title="GameSettings.ini の XFactorAiming">XFactorAiming <input id="xfactor" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
+      <h2><span class="num">02</span>R6S 設定<small>ゲーム内と同じ値を入力</small></h2>
+      <div class="tabs">
+        <button class="on" data-tab="tab-sens">感度</button>
+        <button data-tab="tab-ads">ADS 倍率別</button>
+        <button data-tab="tab-ctl">操作</button>
+        <button data-tab="tab-formula">計算式</button>
       </div>
-      <h3>ADS 感度（倍率ごと, 1–100）</h3>
-      <div class="grid ads">
-        <label>1.0x (Red Dot / Holo / Reflex) <input id="ads1" type="number" min="1" max="100" value="50"></label>
-        <label>1.5x <input id="ads15" type="number" min="1" max="100" value="50"></label>
-        <label>2.0x <input id="ads2" type="number" min="1" max="100" value="50"></label>
-        <label>2.5x (ACOG) <input id="ads25" type="number" min="1" max="100" value="50"></label>
-        <label>3.0x <input id="ads3" type="number" min="1" max="100" value="50"></label>
-        <label>12.0x (Glaz / Kali) <input id="ads12" type="number" min="1" max="100" value="50"></label>
+      <div id="tab-sens" class="tabpane">
+        <div class="grid">
+          <label>マウス DPI <input id="dpi" type="number" min="100" max="32000" step="50" value="800"></label>
+          <label>FOV（垂直, 60–90） <input id="fov" type="number" min="60" max="90" step="1" value="90"></label>
+          <label>水平感度 (1–100) <input id="sensH" type="number" min="1" max="100" step="1" value="10"></label>
+          <label>垂直感度 (1–100) <input id="sensV" type="number" min="1" max="100" step="1" value="10"></label>
+          <label title="GameSettings.ini の MouseSensitivityMultiplierUnit">MouseSensitivityMultiplierUnit <input id="msmu" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
+          <label title="GameSettings.ini の XFactorAiming">XFactorAiming <input id="xfactor" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
+        </div>
       </div>
-      <div class="row">
-        <label>使用サイト <select id="scope">
-          <option value="1">1.0x Holo / Red Dot</option>
-          <option value="1.5">1.5x</option>
-          <option value="2">2.0x</option>
-          <option value="2.5" selected>2.5x ACOG</option>
-          <option value="3">3.0x</option>
-          <option value="12">12.0x</option>
-        </select></label>
-        <label>ADS 操作 <select id="adsmode">
-          <option value="hold">ホールド</option>
-          <option value="toggle">トグル</option>
-        </select></label>
-        <label>マウス反転 <input id="invert" type="checkbox"></label>
+      <div id="tab-ads" class="tabpane hidden">
+        <div class="grid ads">
+          <label>1.0x Holo / Red Dot <input id="ads1" type="number" min="1" max="100" value="50"></label>
+          <label>1.5x <input id="ads15" type="number" min="1" max="100" value="50"></label>
+          <label>2.0x <input id="ads2" type="number" min="1" max="100" value="50"></label>
+          <label>2.5x ACOG <input id="ads25" type="number" min="1" max="100" value="50"></label>
+          <label>3.0x <input id="ads3" type="number" min="1" max="100" value="50"></label>
+          <label>12.0x Glaz / Kali <input id="ads12" type="number" min="1" max="100" value="50"></label>
+        </div>
+        <div class="row">
+          <label>使用サイト <select id="scope">
+            <option value="1">1.0x Holo / Red Dot</option>
+            <option value="1.5">1.5x</option>
+            <option value="2">2.0x</option>
+            <option value="2.5" selected>2.5x ACOG</option>
+            <option value="3">3.0x</option>
+            <option value="12">12.0x</option>
+          </select></label>
+        </div>
       </div>
-      <div id="sensinfo" class="sensinfo"></div>
-      <details>
-        <summary>計算式（R6S 実機準拠）</summary>
-        <pre>腰だめ  yaw[deg/count] = 水平感度 × MouseSensitivityMultiplierUnit × (180/π) / 200
+      <div id="tab-ctl" class="tabpane hidden">
+        <div class="grid">
+          <label>ADS 操作 <select id="adsmode"><option value="hold">ホールド</option><option value="toggle">トグル</option></select></label>
+          <label>しゃがみ操作 <select id="crouchmode"><option value="toggle">トグル</option><option value="hold">ホールド</option></select></label>
+          <label class="chk"><span>マウス反転</span><input id="invert" type="checkbox"></label>
+        </div>
+        <div class="note">
+          移動速度: 歩行 3.1 m/s · ダッシュ 5.3 m/s · しゃがみ 1.55 m/s · ADS 時 ×0.6（3スピード OP 相当）<br>
+          武器: 汎用 AR · 800 RPM · 30 発 · 胴 40 / 頭 100 ダメージ · リロード 2.4s · リコイルは視点が跳ね上がり自動復帰なし（シージ準拠）
+        </div>
+      </div>
+      <div id="tab-formula" class="tabpane hidden">
+<pre>腰だめ  yaw[deg/count] = 水平感度 × MouseSensitivityMultiplierUnit × (180/π) / 200
                         (既定 MSMU=0.02 → 感度1あたり 0.005729°/count)
 ADS     yaw = 腰だめyaw × (ADS感度 / 100) × (XFactorAiming / 0.02)
-        ※ R6S は倍率に依らず上式をそのまま適用（Y5S3 以降の倍率別 ADS 感度を再現）
+        ※ 倍率に依らず上式を適用（Y5S3 以降の倍率別 ADS 感度を再現）
 ADS FOV tan(vFOV_ads/2) = tan(vFOV/2) / 倍率   （R6S の FOV は垂直基準）
 cm/360  = 2.54 × 360 / (yaw × DPI)</pre>
-      </details>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span class="k">腰だめ cm/360</span><b id="si-hip">—</b><small id="si-hip2"></small></div>
+        <div class="stat"><span class="k">ADS cm/360</span><b id="si-ads">—</b><small id="si-ads2"></small></div>
+        <div class="stat"><span class="k">垂直 FOV → ADS</span><b id="si-fov">—</b><small>倍率で縮小</small></div>
+      </div>
     </section>
   </main>
 
   <div id="results" class="hidden">
-    <h2>RESULT</h2>
-    <div id="results-body"></div>
-    <button id="again" class="primary">もう一度</button>
-    <button id="close-results" class="secondary">メニューへ戻る</button>
+    <div class="card">
+      <div class="eyebrow">MISSION REPORT</div>
+      <div id="results-score" class="score">0</div>
+      <div id="results-title" class="title"></div>
+      <div id="results-body"></div>
+      <div class="actions">
+        <button id="again" class="primary"><span class="ico">↻</span> REDEPLOY</button>
+        <button id="close-results" class="secondary">メニューへ戻る</button>
+      </div>
+    </div>
   </div>
 
   <footer>
