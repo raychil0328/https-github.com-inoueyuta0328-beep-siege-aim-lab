@@ -237,6 +237,14 @@ const PROPS = [];
 function addProp(x, z, w, d, h, kind = 'crate') { PROPS.push({ x, z, w, d, h, kind, xmin: x - w / 2, xmax: x + w / 2, zmin: z - d / 2, zmax: z + d / 2 }); }
 function buildMap() {
   PROPS.length = 0;
+  // player zone (z -1..9): cover for the shooter — break line of sight, then peek
+  addProp(-5.5, -0.6, 7.0, 0.4, 2.4, 'wall');   // left wall segment  (doorway between x -2.0 .. 1.0)
+  addProp(4.5, -0.6, 7.0, 0.4, 2.4, 'wall');    // right wall segment (side gaps at |x| > 9)
+  addProp(-3.0, 2.4, 1.6, 1.6, 1.2);            // low crates for head peeks
+  addProp(3.2, 2.0, 1.6, 1.6, 1.2);
+  addProp(-8.5, 4.5, 1.2, 1.2, 2.0, 'pillar');
+  addProp(8.5, 4.0, 1.2, 1.2, 2.0, 'pillar');
+  addProp(0, 7.5, 1.2, 1.2, 0.9);
   // near zone (z -12..-2)
   addProp(-6, -5, 1.6, 1.6, 1.2); addProp(6, -6, 1.6, 1.6, 1.2); addProp(0, -9, 3.0, 1.0, 2.2, 'wall');
   addProp(-9, -10, 1.2, 1.2, 1.2); addProp(9, -11, 1.2, 1.2, 2.0, 'pillar'); addProp(-2.5, -3, 1.2, 1.2, 0.9);
@@ -307,7 +315,7 @@ const game = {
   mode: MODES[0], diff: 1, targets: [], bots: [],
   aimFov: 90, combat: false,
   // player
-  px: 0, pz: 5, eyeY: MOVE.eyeStand, crouch: 0, crouchHeld: false, lean: 0, leanTarget: 0, sprint: false, moving: false, speedNow: 0,
+  px: 0, pz: 5.5, eyeY: MOVE.eyeStand, crouch: 0, crouchHeld: false, lean: 0, leanTarget: 0, sprint: false, moving: false, speedNow: 0,
   // weapon
   ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, recoilVis: 0, muzzle: 0, hitMarker: 0, impacts: [],
   visionTimer: 1.5,
@@ -585,7 +593,7 @@ function startRun() {
   readSettings();
   game.mode = MODES.find(m => m.id === selectedMode); game.diff = settings.difficulty; game.combat = game.mode.group === 'combat';
   Object.assign(game, { t: 0, timeLeft: settings.duration, onTargetTime: 0, fireTime: 0, score: 0, hitStreak: 0, shots: 0, hits: 0, headshots: 0, kills: 0, damage: 0,
-    ads: false, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5, crouchHeld: false, crouch: 0, lean: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0 });
+    ads: false, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5.5, crouchHeld: false, crouch: 0, lean: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0 });
   input.dx = input.dy = 0; fps.sum = 0; fps.n = 0;
   buildMap(); game.targets = []; game.bots = [];
   if (game.combat) spawnBots(); else spawnTargets();
