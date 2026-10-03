@@ -11,6 +11,9 @@ const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+// mulberry32 — deterministic RNG for the 1000 spawn patterns per map
+function seededRng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const PATTERN_COUNT = 1000;
 const DEG = Math.PI / 180;
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
@@ -18,10 +21,20 @@ const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 // Hipfire: yaw per count (deg) = sens * MSMU * (180/pi) / 200  -> 0.005729°/count per sens unit at MSMU 0.02
 // ADS:     yaw = hipfire yaw * (adsSens/100) * (XFactorAiming / 0.02)   (same formula for every zoom level)
 // FOV:     R6S FOV setting is VERTICAL. ADS: tan(vfov_ads/2) = tan(vfov/2) / zoom
+// Source: Ubisoft "FOV and Input Sensitivity" dev article —
+//   ADS FOV  = FOV x optic modifier   (Holo / Red Dot / Reflex / Iron = 0.9, ACOG = 0.35, OTs-03 flip = 0.3)
+//   ADS sens = Hipfire x min(max((ADS slider x XFactorAiming) x optic modifier, 0), 1)   (1x = 0.6, ACOG = 0.35)
+// 1.5x / 2.0x / 3.0x / 12x were added later without published modifiers; they are interpolated on the
+// same curve through the two published points (1x and 2.5x).
+const OPTIC = {
+  fovMod(zoom) { return zoom === 1 ? 0.9 : zoom === 2.5 ? 0.35 : 0.9 * Math.pow(0.35 / 0.9, Math.log(zoom) / Math.log(2.5)); },
+  sensMod(zoom) { return zoom === 1 ? 0.6 : zoom === 2.5 ? 0.35 : 0.6 * Math.pow(0.35 / 0.6, Math.log(zoom) / Math.log(2.5)); },
+  adsTime(zoom) { return zoom === 1 ? 0.32 : zoom <= 2 ? 0.38 : zoom <= 3 ? 0.45 : 0.55; },   // seconds, approximate in-game ADS transition
+};
 const R6 = {
   hipYaw(sens, msmu) { return sens * msmu * (180 / Math.PI) / 200; },
-  adsYaw(hipYawDeg, adsSens, xfactor) { return hipYawDeg * (adsSens / 100) * (xfactor / 0.02); },
-  adsFov(vfovDeg, zoom) { return 2 * Math.atan(Math.tan(vfovDeg * DEG / 2) / zoom) / DEG; },
+  adsYaw(hipYawDeg, adsSens, xfactor, zoom) { return hipYawDeg * clamp(adsSens * xfactor * OPTIC.sensMod(zoom), 0, 1); },
+  adsFov(vfovDeg, zoom) { return vfovDeg * OPTIC.fovMod(zoom); },
   cm360(yawDeg, dpi) { return 2.54 * 360 / (yawDeg * dpi); },
 };
 
@@ -34,7 +47,7 @@ const MOVE = {
   backMul: 0.8,
   strafeMul: 0.9,
   eyeStand: 1.6, eyeCrouch: 1.05,
-  leanOffset: 0.42, leanRoll: 12 * DEG, leanSpeed: 10,
+  leanOffset: 0.42, leanRoll: 12 * DEG, leanSpeed: 5.5,
   crouchSpeed: 9,
   radius: 0.38,
 };
@@ -89,8 +102,8 @@ function sensState() {
   const adsSens = settings.ads[String(settings.scope)] ?? 50;
   return {
     hipYawH, hipYawV,
-    adsYawH: R6.adsYaw(hipYawH, adsSens, settings.xfactor),
-    adsYawV: R6.adsYaw(hipYawV, adsSens, settings.xfactor),
+    adsYawH: R6.adsYaw(hipYawH, adsSens, settings.xfactor, settings.scope),
+    adsYawV: R6.adsYaw(hipYawV, adsSens, settings.xfactor, settings.scope),
     hipFov: settings.fov,
     adsFov: R6.adsFov(settings.fov, settings.scope),
   };
@@ -101,7 +114,7 @@ function updateSensInfo() {
   $('si-hip2').textContent = `${s.hipYawH.toFixed(5)}°/count · eDPI ${settings.dpi * settings.sensH}`;
   $('si-ads').textContent = `${R6.cm360(s.adsYawH, settings.dpi).toFixed(2)} cm`;
   $('si-ads2').textContent = `${settings.scope}x · ${s.adsYawH.toFixed(5)}°/count`;
-  $('si-fov').textContent = `${s.hipFov}° → ${s.adsFov.toFixed(1)}°`;
+  $('si-fov').textContent = `${s.hipFov}° → ${s.adsFov.toFixed(1)}° (×${OPTIC.fovMod(settings.scope).toFixed(3)})`;
 }
 
 // ---------------------------------------------------------------- scenarios
@@ -297,6 +310,8 @@ const MAPS = {
       addProp(2, 3.5, 1.4, 1.4, 1.2); addProp(8.3, 2.5, 1.2, 1.2, 0.9);  // entrance crates
     },
   },
+  // ---- Oregon 1F: traced from the r6maps.com floor plan (walls exact, furniture auto-detected, heights estimated) ----
+  oregon1f: { name: 'オレゴン 1F', data: 'maps/oregon-1f.json', zones: 'dist' },
   // ---- Oregon basement (schematic): Laundry / Supply / Blue Bunker / Freezer / Electric / Basement Corridor / Tower stairs ----
   oregon: {
     name: 'オレゴン 地下', room: { xmin: -16, xmax: 16, zmin: -20, zmax: 6, h: 3.2 },
@@ -340,18 +355,48 @@ const MAPS = {
     },
   },
 };
+const MAP_DATA = {};
+async function loadMapData() {
+  for (const [k, m] of Object.entries(MAPS)) if (m.data && !MAP_DATA[k]) { try { MAP_DATA[k] = await (await fetch(m.data)).json(); } catch (e) { console.warn('map load failed', k, e); } }
+}
 function buildMap(key) {
   MAP = MAPS[key] || MAPS.hall; PROPS.length = 0; DOORS.length = 0;
+  if (MAP.data) {
+    const d = MAP_DATA[key]; if (!d) { MAP = MAPS.hall; }
+    else {
+      ROOM = { xmin: d.bounds[0], xmax: d.bounds[1], zmin: d.bounds[2], zmax: d.bounds[3], h: 3.2 };
+      for (const [x, z, w, dd, h] of d.walls) addProp(x, z, w, dd, h, 'wall');
+      for (const [x, z, w, dd, h] of d.furn) addProp(x, z, w, dd, h, 'furniture');
+      detectDoors();
+      // spawn: nearest free spot to the requested point (spiral search)
+      let sx = d.spawn[0], sz = d.spawn[1];
+      if (!posFree(sx, sz, MOVE.radius + 0.05)) { outer: for (let r = 0.3; r < 6; r += 0.3) for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) { const tx = d.spawn[0] + Math.cos(a) * r, tz = d.spawn[1] + Math.sin(a) * r; if (posFree(tx, tz, MOVE.radius + 0.05)) { sx = tx; sz = tz; break outer; } } }
+      MAP.spawn = { x: sx, z: sz, yaw: d.spawnYaw || 0 };
+      return;
+    }
+  }
   ROOM = { ...MAP.room };
   MAP.build();
 }
-function inZone(x, z, zone) { return (MAP.zones[zone] || []).some(r => x >= r.xmin && x <= r.xmax && z >= r.zmin && z <= r.zmax); }
+// doorways = 0.8–1.7 m gaps between collinear wall pieces
+function detectDoors() {
+  const walls = PROPS.filter(p => p.kind === 'wall');
+  for (const a of walls) for (const b of walls) {
+    if (a === b) continue;
+    if (Math.abs(a.z - b.z) < 0.25 && a.d < 0.9 && b.d < 0.9 && b.xmin > a.xmax) { const gap = b.xmin - a.xmax; if (gap >= 0.8 && gap <= 1.7 && !walls.some(w => w !== a && w !== b && w.xmin < b.xmin && w.xmax > a.xmax && Math.abs(w.z - a.z) < 0.6)) DOORS.push({ x: (a.xmax + b.xmin) / 2, z: a.z, axis: 'x' }); }
+    if (Math.abs(a.x - b.x) < 0.25 && a.w < 0.9 && b.w < 0.9 && b.zmin > a.zmax) { const gap = b.zmin - a.zmax; if (gap >= 0.8 && gap <= 1.7 && !walls.some(w => w !== a && w !== b && w.zmin < b.zmin && w.zmax > a.zmax && Math.abs(w.x - a.x) < 0.6)) DOORS.push({ x: a.x, z: (a.zmax + b.zmin) / 2, axis: 'z' }); }
+  }
+}
+function inZone(x, z, zone) {
+  if (MAP.zones === 'dist') { const d = Math.hypot(x - MAP.spawn.x, z - MAP.spawn.z); return zone === 'near' ? d < 10 : zone === 'mid' ? d >= 8 && d < 18 : d >= 16; }
+  return (MAP.zones[zone] || []).some(r => x >= r.xmin && x <= r.xmax && z >= r.zmin && z <= r.zmax);
+}
 function posFree(x, z, r) { const [cx, cz] = collide(x, z, r); return Math.hypot(cx - x, cz - z) < 0.02; }
 // cover spots: hide behind props (away from player spawn) + door-frame peeks
 function coverSpots(zone) {
   const spots = []; const sp = MAP.spawn; const off = 0.6;
   for (const p of PROPS) {
-    if (p.kind === 'wall' || !inZone(p.x, p.z, zone)) continue;
+    if (p.kind === 'wall' || !inZone(p.x, p.z, zone) || Math.hypot(p.x - sp.x, p.z - sp.z) < 4) continue;   // never right on top of the player
     const dx = p.x - sp.x, dz = p.z - sp.z;
     let hide, peeks;
     if (Math.abs(dz) >= Math.abs(dx)) { const s2 = Math.sign(dz) || -1; const hz = p.z + s2 * (p.d / 2 + off); hide = [p.x, hz]; peeks = [[p.xmin - off, hz], [p.xmax + off, hz]]; }
@@ -361,7 +406,7 @@ function coverSpots(zone) {
     spots.push({ hide, peeks, low: p.h < 1.6, prop: p });
   }
   for (const d of DOORS) {
-    if (!inZone(d.x, d.z, zone)) continue;
+    if (!inZone(d.x, d.z, zone) || Math.hypot(d.x - sp.x, d.z - sp.z) < 4) continue;
     const away = d.axis === 'x' ? [0, Math.sign(d.z - sp.z) || -1] : [Math.sign(d.x - sp.x) || 1, 0];
     const lat = d.axis === 'x' ? [1, 0] : [0, 1];
     for (const sgn of [1, -1]) {
@@ -434,7 +479,7 @@ const game = {
   t: 0, timeLeft: 60, onTargetTime: 0, fireTime: 0, score: 0, hitStreak: 0,
   shots: 0, hits: 0, headshots: 0, kills: 0, damage: 0,
   mode: MODES[0], diff: 1, targets: [], bots: [],
-  aimFov: 90, combat: false,
+  aimFov: 90, adsBlend: 0, combat: false,
   // player
   px: 0, pz: 5.5, eyeY: MOVE.eyeStand, crouch: 0, crouchHeld: false, lean: 0, leanTarget: 0, leanToggle: 0, sprint: false, moving: false, speedNow: 0,
   // weapon
@@ -516,13 +561,13 @@ function updateTargets(dt) {
 // ---------------------------------------------------------------- bots (combat modes)
 const BOT = { r: 0.28, hh: 0.55, headR: 0.16, hp: 100, walk: 3.1, sprint: 5.3, crouch: 1.55, respawn: 1.2 };
 class Bot {
-  constructor(zone) { this.zone = zone; this.spawn(); }
-  spawn() {
-    let spots = coverSpots(this.zone); if (!spots.length) for (const z of Object.keys(MAP.zones)) { spots = coverSpots(z); if (spots.length) { this.zone = z; break; } }
-    this.spot = pick(spots);
+  constructor(zone, preset) { this.zone = zone; this.spawn(preset); }
+  spawn(preset) {
+    let spots = coverSpots(this.zone); if (!spots.length) for (const z of ['near', 'mid', 'far']) { spots = coverSpots(z); if (spots.length) { this.zone = z; break; } }
+    this.spot = preset ? spots[preset.spotIndex % spots.length] : pick(spots);
     this.x = this.spot.hide[0]; this.z = this.spot.hide[1]; this.hp = BOT.hp; this.dead = 0; this.alive = true;
     this.crouch = this.spot.low ? 1 : 0; this.crouchT = this.crouch; this.lean = 0; this.leanT = 0; this.flash = 0;
-    this.state = 'hide'; this.timer = rand(0.3, 1.0); this.dest = null; this.sprint = false;
+    this.state = 'hide'; this.timer = preset ? preset.delay : rand(0.3, 1.0); this.dest = null; this.sprint = false;
   }
   get bodyY() { return (BOT.hh * (1 - this.crouch * 0.45)) + BOT.r + 0.05; }
   get segs() { // body capsule segment + head center
@@ -589,9 +634,20 @@ class Bot {
     return null;
   }
 }
+// 1000 spawn patterns per map: pattern k is a deterministic layout (cover spot + first-move delay per bot)
+// generated from seed hash(map, k); one is picked at random for every run.
+function spawnPattern(mapKey, k, n, zones) {
+  let h = 2166136261; for (const ch of mapKey + ':' + k) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  const rng = seededRng(h);
+  const out = [];
+  for (let i = 0; i < n; i++) out.push({ zone: zones[i % zones.length], spotIndex: Math.floor(rng() * 100000), delay: 0.2 + rng() * 1.6 });
+  return out;
+}
 function spawnBots() {
   game.bots = []; const m = game.mode; const n = settings.bots === 'auto' ? m.bots + (game.diff >= 1.35 ? 1 : 0) : clamp(+settings.bots || 1, 1, 10);
-  for (let i = 0; i < n; i++) game.bots.push(new Bot(m.zones[i % m.zones.length]));
+  game.pattern = Math.floor(Math.random() * PATTERN_COUNT);
+  const pat = spawnPattern(settings.map, game.pattern, n, m.zones);
+  for (let i = 0; i < n; i++) game.bots.push(new Bot(pat[i].zone, pat[i]));
 }
 
 // ---------------------------------------------------------------- input
@@ -636,6 +692,7 @@ function updatePlayer(dt) {
   game.eyeY = MOVE.eyeStand + (MOVE.eyeCrouch - MOVE.eyeStand) * game.crouch;
   // movement (R6S: no acceleration, sprint only forward, ADS slows, crouch slows)
   let fx = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), sx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
+  if (keys.ShiftLeft && fx > 0 && game.crouchHeld) game.crouchHeld = false;   // Siege: sprint from crouch stands you up
   game.sprint = !!keys.ShiftLeft && fx > 0 && !game.ads && game.crouch < 0.5;
   game.moving = fx !== 0 || sx !== 0;
   game.leanTarget = settings.leanmode === 'toggle' ? game.leanToggle : (keys.KeyQ ? 1 : 0) - (keys.KeyE ? 1 : 0);
@@ -719,14 +776,14 @@ function startRun() {
   readSettings();
   game.mode = MODES.find(m => m.id === selectedMode); game.diff = settings.difficulty; game.combat = game.mode.group === 'combat';
   Object.assign(game, { t: 0, timeLeft: settings.duration, onTargetTime: 0, fireTime: 0, score: 0, hitStreak: 0, shots: 0, hits: 0, headshots: 0, kills: 0, damage: 0,
-    ads: false, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5.5, crouchHeld: false, crouch: 0, lean: 0, leanToggle: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0 });
+    ads: false, adsBlend: 0, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5.5, crouchHeld: false, crouch: 0, lean: 0, leanToggle: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0 });
   input.dx = input.dy = 0; fps.sum = 0; fps.n = 0;
   buildMap(game.combat ? settings.map : 'hall'); game.targets = []; game.bots = [];
   game.px = MAP.spawn.x; game.pz = MAP.spawn.z; game.yaw = MAP.spawn.yaw;
   if (game.combat) spawnBots(); else spawnTargets();
   game.running = true;
   $('menu').classList.add('hidden'); $('results').classList.add('hidden'); $('hud').classList.remove('hidden');
-  $('h-mode').textContent = game.mode.name + (game.combat ? ' · ' + MAP.name : '');
+  $('h-mode').textContent = game.mode.name + (game.combat ? ` · ${MAP.name} · 湧きパターン #${game.pattern + 1}/${PATTERN_COUNT}` : '');
   const s = sensState();
   $('h-sens').textContent = `${settings.dpi}DPI · H${settings.sensH}/V${settings.sensV} · ${R6.cm360(s.hipYawH, settings.dpi).toFixed(1)}cm/360`;
   $('hud').classList.toggle('combat', game.combat);
@@ -807,9 +864,9 @@ function scopeSVG(key, color) {
 </svg>`;
 }
 let scopeBuiltFor = '';
-function updateScopeUI() {
+function updateScopeUI(adsOn = game.adsBlend >= 0.5) {
   const sc = $('scope-ov'); const ch = $('crosshair'); const S = SIGHTS[settings.sight] || SIGHTS['2.5'];
-  if (game.ads) {
+  if (adsOn) {
     ch.classList.add('ads'); sc.classList.remove('hidden');
     const sig = `${settings.sight}|${settings.reticle}|${canvas.clientWidth}x${canvas.clientHeight}`;
     if (scopeBuiltFor !== sig) { sc.innerHTML = scopeSVG(settings.sight, settings.reticle); scopeBuiltFor = sig; }
@@ -838,13 +895,15 @@ function frame(now) {
 
   // --- mouse look (R6S formulas) ---
   const s = sensState();
-  const yawPer = game.ads ? s.adsYawH : s.hipYawH, pitchPer = game.ads ? s.adsYawV : s.hipYawV;
+  const adsT = OPTIC.adsTime(settings.scope); game.adsBlend = clamp(game.adsBlend + (game.ads ? dt : -dt) / adsT, 0, 1);
+  const adsOn = game.adsBlend >= 0.5;
+  const yawPer = adsOn ? s.adsYawH : s.hipYawH, pitchPer = adsOn ? s.adsYawV : s.hipYawV;
   game.yaw += input.dx * yawPer * DEG; game.pitch -= input.dy * pitchPer * DEG * (settings.invert ? -1 : 1);
   game.pitch = clamp(game.pitch, -89 * DEG, 89 * DEG);
   input.dx = input.dy = 0;
-  const targetFov = game.ads ? s.adsFov : s.hipFov;
-  game.aimFov += (targetFov - game.aimFov) * Math.min(1, dt * 22); if (Math.abs(game.aimFov - targetFov) < 0.02) game.aimFov = targetFov;
-  if (lastAds !== game.ads) { lastAds = game.ads; if (game.running) updateScopeUI(); }
+  const k = game.adsBlend * game.adsBlend * (3 - 2 * game.adsBlend);   // smoothstep
+  game.aimFov = s.hipFov + (s.adsFov - s.hipFov) * k;
+  if (lastAds !== adsOn) { lastAds = adsOn; if (game.running) updateScopeUI(adsOn); }
 
   // --- simulation ---
   if (game.running) { game.t += dt; game.timeLeft -= dt; updatePlayer(dt); }
@@ -898,7 +957,7 @@ function frame(now) {
   }
   for (const im of game.impacts) { const r = 0.06 + (0.08 - im.t) * 0.8; draw(meshUnit, modelTRS(im.p[0], im.p[1], im.p[2], r, r, r), im.c, 0, 1.0); }
   // weapon viewmodel (camera space; hidden in ADS — the scope overlay takes over)
-  if (game.combat && !game.ads) {
+  if (game.combat && game.adsBlend < 0.5) {
     gl.clear(gl.DEPTH_BUFFER_BIT); gl.uniformMatrix4fv(U.uView, false, IDENT); gl.uniform3fv(U.uCam, [0, 0, 0]); gl.uniform1f(U.uFog, 0);
     gl.uniformMatrix4fv(U.uProj, false, perspective(55, aspect, 0.02, 10));
     const k = game.recoilVis;
@@ -914,7 +973,7 @@ function frame(now) {
 
 // ---------------------------------------------------------------- boot
 loadSettings(); settings.scope = (SIGHTS[settings.sight] || SIGHTS['2.5']).zoom; selectedMode = MODES.some(m => m.id === settings.mode) ? settings.mode : 'cqb';
-buildMap('hall'); buildModeList(); updateSensInfo(); showBest();
+buildMap('hall'); loadMapData(); buildModeList(); updateSensInfo(); showBest();
 for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'map', 'recoil', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
 for (const id of ['difficulty', 'duration']) $(id).addEventListener('change', () => { readSettings(); showBest(); });
 $('start').addEventListener('click', async () => { startRun(); await requestLock(); });

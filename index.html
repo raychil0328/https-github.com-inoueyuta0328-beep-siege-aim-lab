@@ -60,6 +60,7 @@
         <label>マップ（COMBAT） <select id="map">
           <option value="hall">トレーニングホール</option>
           <option value="clubhouse">クラブハウス 地下（概略）</option>
+          <option value="oregon1f">オレゴン 1F（r6maps フロアプラン準拠）</option>
           <option value="oregon">オレゴン 地下（概略）</option>
           <option value="bank">バンク 地下（概略）</option>
         </select></label>
@@ -162,11 +163,13 @@
         </div>
       </div>
       <div id="tab-formula" class="tabpane hidden">
-<pre>腰だめ  yaw[deg/count] = 水平感度 × MouseSensitivityMultiplierUnit × (180/π) / 200
+<pre>出典: Ubisoft 公式 "FOV and Input Sensitivity"
+腰だめ  yaw[deg/count] = 水平感度 × MouseSensitivityMultiplierUnit × (180/π) / 200
                         (既定 MSMU=0.02 → 感度1あたり 0.005729°/count)
-ADS     yaw = 腰だめyaw × (ADS感度 / 100) × (XFactorAiming / 0.02)
-        ※ 倍率に依らず上式を適用（Y5S3 以降の倍率別 ADS 感度を再現）
-ADS FOV tan(vFOV_ads/2) = tan(vFOV/2) / 倍率   （R6S の FOV は垂直基準）
+ADS     yaw = 腰だめyaw × min(max((ADS感度 × XFactorAiming) × 光学補正, 0), 1)
+        光学補正(感度): 1x(Holo/RedDot/Reflex/アイアン) 0.6 · ACOG 2.5x 0.35
+ADS FOV = FOV × 光学補正(FOV)   1x: 0.9（-10% = ホロでも少しズーム） · ACOG: 0.35
+        ※ 1.5x / 2.0x / 3.0x / 12x は公開値がないため 1x と 2.5x を通る曲線で補間
 cm/360  = 2.54 × 360 / (yaw × DPI)</pre>
       </div>
 
