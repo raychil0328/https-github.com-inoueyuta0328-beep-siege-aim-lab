@@ -1,109 +1,75 @@
 #!/usr/bin/env python3
 """
-obj2map.py — 3D geometry (OBJ mesh or PLY point cloud) -> SIEGE AIM LAB map JSON
+obj2map.py — 3D geometry (OBJ mesh) -> SIEGE AIM LAB map JSON (walls + furniture boxes with real heights)
 
-Takes real map geometry (extracted game meshes, Sketchfab photogrammetry, etc.),
-voxelizes it, splits it into floors, and emits axis-aligned boxes with REAL heights:
-  walls      = voxel columns that are solid from floor level up to (near) the ceiling
-  furniture  = everything else that sticks up from the floor (tables, crates, beds ...)
+Built for full game-map exports (millions of faces): everything is vectorized with numpy.
+
+Pipeline (per floor):
+  1. read OBJ (only 'v' and 'f' lines), optionally crop to an XZ rectangle (the building)
+  2. keep triangles that intersect the floor's height slab [floor+lo, floor+hi]
+  3. split triangles until every edge < voxel/2, take vertices + centroids as surface samples
+  4. voxelize; per (x,z) column measure the height of solid material contiguous from just above the floor
+       wall      : contiguous solid up to >= --wall-h (default 2.0 m above floor)  -> blocks bullets and movement
+       furniture : contiguous solid of 0.3 m .. wall-h                            -> cover with measured height
+  5. fill small hollow shells (inside of crates / thick walls), greedy-merge columns into boxes
 
 Usage:
-  python3 obj2map.py input.obj  --name "オレゴン 1F" --out oregon-1f.json [--floor 1] [--voxel 0.2]
-                                [--scale 1.0] [--up y|z] [--spawn X,Z] [--floor-z ZMIN,ZMAX]
-  python3 obj2map.py cloud.ply  ... (same options; binary/ascii PLY with x y z)
-
-Coordinates: output is metres, X east, Z south (+Z toward the default camera), Y up.
-  --up z   : input is Z-up (e.g. Blender default export without Y-up conversion)
-  --scale  : multiply input units (e.g. 0.01 if the source is in centimetres)
-Floors: detected automatically from the histogram of upward-facing surface heights,
-  or forced with --floor-z (height range of the floor slab you want, in input units after scale).
-Only numpy is required.
+  python3 obj2map.py oregon_all.obj --name "オレゴン 1F" --out oregon-1f.json --floor-y 0.0 \
+      --crop -50,25,-5,75 [--voxel 0.2] [--spawn X,Z] [--spawn-yaw RAD]
+  (OBJ must be metres, Y-up. Output keeps the OBJ's X and Z axes.)
 """
-import sys, json, argparse, struct, math
+import sys, json, argparse, time
 import numpy as np
+from collections import deque
 
-def read_obj(path, scale, up):
-    V = []; F = []
-    with open(path, 'r', errors='ignore') as f:
-        for line in f:
-            if line.startswith('v '):
-                p = line.split(); V.append((float(p[1]), float(p[2]), float(p[3])))
-            elif line.startswith('f '):
-                idx = [int(t.split('/')[0]) for t in line.split()[1:]]
-                idx = [i - 1 if i > 0 else len(V) + i for i in idx]
-                for k in range(1, len(idx) - 1): F.append((idx[0], idx[k], idx[k + 1]))
-    V = np.array(V, dtype=np.float64) * scale
-    if up == 'z': V = V[:, [0, 2, 1]]; V[:, 2] = -V[:, 2]   # Z-up -> Y-up (x, z->y, -y->z)
-    return V, np.array(F, dtype=np.int64)
+def log(*a): print(f'[{time.strftime("%H:%M:%S")}]', *a, flush=True)
 
-def read_ply(path, scale, up):
+def read_obj(path):
+    vs, fs = [], []
     with open(path, 'rb') as f:
-        header = []
-        while True:
-            line = f.readline().decode('ascii', errors='ignore').strip(); header.append(line)
-            if line == 'end_header': break
-        n = 0; props = []; fmt = 'ascii'
-        for h in header:
-            if h.startswith('format'): fmt = h.split()[1]
-            if h.startswith('element vertex'): n = int(h.split()[2])
-            if h.startswith('property') and n and not props_done(header, h): props.append(h.split()[1:])
-        names = [p[1] for p in props]; types = [p[0] for p in props]
-        ix, iy, iz = names.index('x'), names.index('y'), names.index('z')
-        if fmt == 'ascii':
-            pts = np.loadtxt(f, max_rows=n, usecols=(ix, iy, iz))
-        else:
-            tmap = {'float': 'f', 'float32': 'f', 'double': 'd', 'uchar': 'B', 'uint8': 'B', 'char': 'b', 'int': 'i', 'uint': 'I', 'short': 'h', 'ushort': 'H'}
-            rec = ('<' if 'little' in fmt else '>') + ''.join(tmap[t] for t in types)
-            size = struct.calcsize(rec); buf = f.read(size * n)
-            arr = np.frombuffer(buf, dtype=np.dtype([(f'c{i}', ('<' if 'little' in fmt else '>') + tmap[t]) for i, t in enumerate(types)]), count=n)
-            pts = np.stack([arr[f'c{ix}'], arr[f'c{iy}'], arr[f'c{iz}']], 1).astype(np.float64)
-    pts = pts * scale
-    if up == 'z': pts = pts[:, [0, 2, 1]]; pts[:, 2] = -pts[:, 2]
-    return pts
+        for line in f:
+            if line[:2] == b'v ': vs.append(line[2:])
+            elif line[:2] == b'f ': fs.append(line[2:])
+    log(f'parsed lines: v={len(vs):,} f={len(fs):,}')
+    V = np.array(b' '.join(vs).split(), dtype=np.float64).reshape(-1, 3)
+    # faces: handle 'a b c', 'a/b/c', 'a//c', and polygons (fan-triangulate)
+    tri = []; poly = []
+    for l in fs:
+        p = l.split()
+        if len(p) == 3: tri.append(p)
+        else: poly.append(p)
+    def idx(tok): return int(tok.split(b'/')[0])
+    if tri and b'/' not in tri[0][0]:
+        F = np.array(b' '.join(b' '.join(t) for t in tri).split(), dtype=np.int64).reshape(-1, 3)
+    else:
+        F = np.array([[idx(t) for t in p] for p in tri], dtype=np.int64).reshape(-1, 3)
+    extra = []
+    for p in poly:
+        ii = [idx(t) for t in p]
+        for k in range(1, len(ii) - 1): extra.append((ii[0], ii[k], ii[k + 1]))
+    if extra: F = np.concatenate([F, np.array(extra, dtype=np.int64)])
+    F = np.where(F > 0, F - 1, len(V) + F)
+    return V, F
 
-def props_done(header, h):
-    # properties listed after 'element face' belong to faces, not vertices
-    seen_face = False
-    for line in header:
-        if line.startswith('element face'): seen_face = True
-        if line == h: return seen_face
-    return False
+def subdivide(A, B, C, h, cap=60_000_000):
+    """Split triangles (arrays of shape (n,3)) until every edge < h; return sample points."""
+    pts = []
+    while len(A):
+        e = np.maximum.reduce([np.linalg.norm(B - A, axis=1), np.linalg.norm(C - B, axis=1), np.linalg.norm(A - C, axis=1)])
+        small = e < h
+        pts.append(A[small]); pts.append(B[small]); pts.append(C[small]); pts.append((A[small] + B[small] + C[small]) / 3)
+        A, B, C = A[~small], B[~small], C[~small]
+        if not len(A): break
+        if len(A) * 4 > cap: raise SystemExit('too many subdivisions; use a larger --voxel or --crop')
+        AB, BC, CA = (A + B) / 2, (B + C) / 2, (C + A) / 2
+        A, B, C = np.concatenate([A, AB, CA, AB]), np.concatenate([AB, B, BC, BC]), np.concatenate([CA, BC, C, CA])
+    return np.concatenate(pts) if pts else np.zeros((0, 3))
 
-def sample_triangles(V, F, step):
-    """Dense surface samples on every triangle (spacing ~step) + upward-facing flags."""
-    pts = []; upflag = []
-    A, B, C = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
-    N = np.cross(B - A, C - A); area2 = np.linalg.norm(N, axis=1); ok = area2 > 1e-9
-    Nn = np.zeros_like(N); Nn[ok] = N[ok] / area2[ok, None]
-    for i in np.where(ok)[0]:
-        a, b, c = A[i], B[i], C[i]
-        la, lb = np.linalg.norm(b - a), np.linalg.norm(c - a)
-        n1 = max(1, int(math.ceil(la / step))); n2 = max(1, int(math.ceil(lb / step)))
-        u = np.linspace(0, 1, n1 + 1); v = np.linspace(0, 1, n2 + 1)
-        uu, vv = np.meshgrid(u, v); m = uu + vv <= 1.0001
-        P = a + uu[m][:, None] * (b - a) + vv[m][:, None] * (c - a)
-        pts.append(P); upflag.append(np.full(len(P), Nn[i, 1] > 0.7))
-    return np.concatenate(pts), np.concatenate(upflag)
-
-def detect_floors(pts, up, voxel):
-    """Floor levels = strong peaks in the height histogram of upward-facing samples."""
-    ys = pts[up, 1] if up is not None and up.any() else pts[:, 1]
-    bins = np.arange(ys.min() - voxel, ys.max() + voxel, voxel / 2)
-    h, edges = np.histogram(ys, bins)
-    peaks = []
-    thr = max(h.max() * 0.08, 50)
-    for i in range(1, len(h) - 1):
-        if h[i] >= thr and h[i] >= h[i - 1] and h[i] >= h[i + 1]:
-            y = (edges[i] + edges[i + 1]) / 2
-            if not peaks or y - peaks[-1] > 2.2: peaks.append(y)
-            elif h[i] > h[np.searchsorted(edges, peaks[-1]) - 1]: peaks[-1] = y
-    return peaks
-
-def boxes_from_mask(mask, origin, voxel, height_of):
-    """Greedy merge of a 2D occupancy mask into rectangles; height_of(i0,i1,j0,j1) gives box height."""
-    m = mask.copy(); out = []
-    H, W = m.shape
+def boxes_from_mask(mask, x0, z0, vx, height_of):
+    m = mask.copy(); out = []; H, W = m.shape
     for j in range(H):
+        row = m[j]
+        if not row.any(): continue
         i = 0
         while i < W:
             if m[j, i]:
@@ -111,9 +77,8 @@ def boxes_from_mask(mask, origin, voxel, height_of):
                 while i2 + 1 < W and m[j, i2 + 1]: i2 += 1
                 j2 = j
                 while j2 + 1 < H and m[j2 + 1, i:i2 + 1].all(): j2 += 1
-                x0, x1 = origin[0] + i * voxel, origin[0] + (i2 + 1) * voxel
-                z0, z1 = origin[1] + j * voxel, origin[1] + (j2 + 1) * voxel
-                out.append([round((x0 + x1) / 2, 3), round((z0 + z1) / 2, 3), round(x1 - x0, 3), round(z1 - z0, 3), round(height_of(i, i2, j, j2), 2)])
+                ax, bx = x0 + i * vx, x0 + (i2 + 1) * vx; az, bz = z0 + j * vx, z0 + (j2 + 1) * vx
+                out.append([round((ax + bx) / 2, 3), round((az + bz) / 2, 3), round(bx - ax, 3), round(bz - az, 3), round(float(height_of(i, i2, j, j2)), 2)])
                 m[j:j2 + 1, i:i2 + 1] = False; i = i2 + 1
             else: i += 1
     return out
@@ -121,39 +86,44 @@ def boxes_from_mask(mask, origin, voxel, height_of):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('input'); ap.add_argument('--name', required=True); ap.add_argument('--out', required=True)
-    ap.add_argument('--voxel', type=float, default=0.2); ap.add_argument('--scale', type=float, default=1.0)
-    ap.add_argument('--up', choices=['y', 'z'], default='y'); ap.add_argument('--floor', type=int, default=None, help='floor index (0 = lowest) to export')
-    ap.add_argument('--floor-z', default=None, help='force floor slab height range, e.g. 0.0,0.4'); ap.add_argument('--spawn', default=None, help='X,Z in output metres')
-    ap.add_argument('--ceiling', type=float, default=3.0, help='height above floor considered "full height" (wall)')
-    a = ap.parse_args()
-    vx = a.voxel
-    if a.input.lower().endswith('.ply'):
-        pts = read_ply(a.input, a.scale, a.up); up = None
+    ap.add_argument('--floor-y', type=float, required=True, help='height of this floor slab (meta.json floors[].y)')
+    ap.add_argument('--crop', default=None, help='xmin,xmax,zmin,zmax (OBJ metres)')
+    ap.add_argument('--voxel', type=float, default=0.1)
+    ap.add_argument('--lo', type=float, default=0.45, help='ignore geometry below floor+lo (floor slab, rugs, raised floor steps)')
+    ap.add_argument('--hi', type=float, default=2.4, help='ignore geometry above floor+hi (lintels, ceiling)')
+    ap.add_argument('--wall-h', type=float, default=2.0, help='contiguous height above floor that counts as wall')
+    ap.add_argument('--spawn', default=None); ap.add_argument('--spawn-yaw', type=float, default=0.0)
+    ap.add_argument('--cache', default=None, help='.npz cache of parsed V/F (speeds up re-runs)')
+    a = ap.parse_args(); vx = a.voxel; fy = a.floor_y
+    if a.cache and __import__('os').path.exists(a.cache):
+        d = np.load(a.cache); V, F = d['V'], d['F']; log('loaded cache', a.cache)
     else:
-        V, F = read_obj(a.input, a.scale, a.up); pts, up = sample_triangles(V, F, vx * 0.5)
-    print(f'samples: {len(pts):,}  bbox x[{pts[:,0].min():.1f},{pts[:,0].max():.1f}] y[{pts[:,1].min():.1f},{pts[:,1].max():.1f}] z[{pts[:,2].min():.1f},{pts[:,2].max():.1f}]')
-    if a.floor_z:
-        lo, hi = map(float, a.floor_z.split(',')); floor_y = (lo + hi) / 2; floors = [floor_y]
-    else:
-        floors = detect_floors(pts, up, vx); print('floor levels (y):', [round(f, 2) for f in floors])
-        if not floors: sys.exit('no floor detected; use --floor-z')
-        floor_y = floors[a.floor if a.floor is not None else 0]
-    y0, y1 = floor_y + 0.25, floor_y + a.ceiling + 0.6      # slab of interest above this floor
-    sel = (pts[:, 1] >= y0) & (pts[:, 1] < y1); P = pts[sel]
-    xmin, zmin = P[:, 0].min(), P[:, 2].min(); W = int((P[:, 0].max() - xmin) / vx) + 2; H = int((P[:, 2].max() - zmin) / vx) + 2; L = int((y1 - y0) / vx) + 1
-    gi = ((P[:, 0] - xmin) / vx).astype(int); gj = ((P[:, 2] - zmin) / vx).astype(int); gk = ((P[:, 1] - y0) / vx).astype(int)
-    occ = np.zeros((H, W, L), bool); occ[gj, gi, gk] = True
-    # column analysis: top of the solid part starting at the floor, and total vertical coverage
-    hcol = np.zeros((H, W)); cover = occ.sum(2)
-    for k in range(L):
-        layer = occ[:, :, k]
-        hcol[layer & (hcol >= k * vx - vx * 1.01)] = (k + 1) * vx   # continue only if column is contiguous from the floor
-    wall_mask = (hcol >= a.ceiling - 0.6) | ((cover * vx) >= a.ceiling - 0.9)
-    furn_mask = (cover > 0) & ~wall_mask & (hcol >= vx)
-    # fill enclosed hollows (surface meshes only sample the shell of crates/tables/thick walls)
-    from collections import deque
-    solid = wall_mask | furn_mask; reach = np.zeros_like(solid)
-    q = deque()
+        V, F = read_obj(a.input)
+        if a.cache: np.savez(a.cache, V=V, F=F)
+    log(f'verts {len(V):,} faces {len(F):,}')
+    A, B, C = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
+    ymin = np.minimum.reduce([A[:, 1], B[:, 1], C[:, 1]]); ymax = np.maximum.reduce([A[:, 1], B[:, 1], C[:, 1]])
+    keep = (ymax >= fy + a.lo) & (ymin <= fy + a.hi)
+    if a.crop:
+        x0c, x1c, z0c, z1c = map(float, a.crop.split(','))
+        cx = (A[:, 0] + B[:, 0] + C[:, 0]) / 3; cz = (A[:, 2] + B[:, 2] + C[:, 2]) / 3
+        keep &= (cx >= x0c - 2) & (cx <= x1c + 2) & (cz >= z0c - 2) & (cz <= z1c + 2)
+    A, B, C = A[keep], B[keep], C[keep]; log(f'triangles in slab: {len(A):,}')
+    P = subdivide(A, B, C, vx * 0.5); log(f'samples {len(P):,}')
+    P = P[(P[:, 1] >= fy + a.lo) & (P[:, 1] < fy + a.hi)]
+    if a.crop: P = P[(P[:, 0] >= x0c) & (P[:, 0] <= x1c) & (P[:, 2] >= z0c) & (P[:, 2] <= z1c)]
+    x0, z0 = P[:, 0].min(), P[:, 2].min()
+    W = int((P[:, 0].max() - x0) / vx) + 2; H = int((P[:, 2].max() - z0) / vx) + 2; L = int((a.hi - a.lo) / vx) + 1
+    gi = ((P[:, 0] - x0) / vx).astype(np.int32); gj = ((P[:, 2] - z0) / vx).astype(np.int32); gk = ((P[:, 1] - fy - a.lo) / vx).astype(np.int32)
+    occ = np.zeros((H, W, L), bool); occ[gj, gi, np.clip(gk, 0, L - 1)] = True
+    log(f'grid {W}x{H}x{L}')
+    # contiguous solid height from the bottom of the slab
+    run = np.cumprod(occ, axis=2).sum(axis=2)            # number of contiguous voxels from k=0
+    hcol = a.lo + run * vx                               # height above floor of that solid
+    wall = hcol >= a.wall_h
+    furn = (run > 0) & ~wall & (hcol >= 0.3 + a.lo * 0)  # run>0 means it reaches down to floor+lo
+    # fill hollow shells (crate / wall interiors): non-solid regions <= 3 m^2 not connected to the outside
+    solid = wall | furn; reach = np.zeros_like(solid); q = deque()
     for j in range(H):
         for i in (0, W - 1):
             if not solid[j, i] and not reach[j, i]: reach[j, i] = True; q.append((j, i))
@@ -165,9 +135,7 @@ def main():
         for dj, di in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             nj, ni = j + dj, i + di
             if 0 <= nj < H and 0 <= ni < W and not solid[nj, ni] and not reach[nj, ni]: reach[nj, ni] = True; q.append((nj, ni))
-    holes = ~solid & ~reach
-    # label hole components; small ones (<= 3 m^2) are hollow object shells -> fill; large ones are enclosed rooms -> keep open
-    lab = np.zeros((H, W), int); comp = 0
+    holes = ~solid & ~reach; lab = np.zeros((H, W), np.int32); comp = 0; filled = 0
     for j0, i0 in zip(*np.where(holes)):
         if lab[j0, i0]: continue
         comp += 1; cells = [(j0, i0)]; lab[j0, i0] = comp; qq = deque([(j0, i0)])
@@ -177,28 +145,38 @@ def main():
                 nj, ni = j + dj, i + di
                 if 0 <= nj < H and 0 <= ni < W and holes[nj, ni] and not lab[nj, ni]: lab[nj, ni] = comp; qq.append((nj, ni)); cells.append((nj, ni))
         if len(cells) * vx * vx > 3.0: continue
-        for j, i in cells:
-            nb = [(j + dj, i + di) for dj, di in ((1, 0), (-1, 0), (0, 1), (0, -1)) if 0 <= j + dj < H and 0 <= i + di < W]
-            if all(wall_mask[a, b] or holes[a, b] for a, b in nb) and any(wall_mask[a, b] for a, b in nb): wall_mask[j, i] = True
-            else: furn_mask[j, i] = True; hcol[j, i] = max([hcol[a, b] for a, b in nb if furn_mask[a, b] or wall_mask[a, b]] + [vx])
-    org = (xmin, zmin)
-    walls = boxes_from_mask(wall_mask, org, vx, lambda i, i2, j, j2: a.ceiling + 0.2)
-    furn = boxes_from_mask(furn_mask, org, vx, lambda i, i2, j, j2: max(0.3, float(np.median(hcol[j:j2 + 1, i:i2 + 1]) + 0.25)))
-    furn = [b for b in furn if b[2] * b[3] >= vx * vx * 2]      # drop single-voxel noise
-    bounds = [float(xmin) - 1, float(xmin + W * vx) + 1, float(zmin) - 1, float(zmin + H * vx) + 1]
+        jj = np.array([c[0] for c in cells]); ii = np.array([c[1] for c in cells])
+        ring = np.zeros((H, W), bool); ring[np.clip(jj - 1, 0, H - 1), ii] = True; ring[np.clip(jj + 1, 0, H - 1), ii] = True; ring[jj, np.clip(ii - 1, 0, W - 1)] = True; ring[jj, np.clip(ii + 1, 0, W - 1)] = True
+        ring &= ~holes
+        if wall[ring].mean() > 0.5: wall[jj, ii] = True
+        else: furn[jj, ii] = True; hcol[jj, ii] = np.median(hcol[ring & furn]) if (ring & furn).any() else 0.8
+        filled += len(cells)
+    log(f'filled hollow cells: {filled}')
+    # drop isolated single furniture voxels (noise: cables, thin poles)
+    nb = np.zeros((H, W), np.int32)
+    for dj, di in ((1, 0), (-1, 0), (0, 1), (0, -1)): nb += np.roll(np.roll(furn | wall, dj, 0), di, 1)
+    furn &= nb > 0
+    walls = boxes_from_mask(wall, x0, z0, vx, lambda *_: 3.2)
+    furns = boxes_from_mask(furn, x0, z0, vx, lambda i, i2, j, j2: np.median(hcol[j:j2 + 1, i:i2 + 1]))
+    # surface samples sit on faces, so each box over-extends by ~half a voxel per side: trim it back
+    def trim(b): b[2] = round(max(vx, b[2] - vx / 2), 3); b[3] = round(max(vx, b[3] - vx / 2), 3); return b
+    walls = [trim(b) for b in walls]; furns = [trim(b) for b in furns]
+    log(f'walls {len(walls)} furniture {len(furns)}')
+    bounds = [float(x0) - 0.5, float(x0 + W * vx) + 0.5, float(z0) - 0.5, float(z0 + H * vx) + 0.5]
     if a.spawn: sx, sz = map(float, a.spawn.split(','))
-    else:   # spawn = centre of the largest open area (max distance to any occupied cell), cheap approximation
-        free = ~(wall_mask | furn_mask); best = None
-        for j in range(0, H, 2):
-            for i in range(0, W, 2):
+    else:
+        free = ~(wall | furn); best = (0, W // 2, H // 2)
+        for j in range(2, H - 2, 3):
+            for i in range(2, W - 2, 3):
                 if not free[j, i]: continue
                 r = 0
-                while r < 30 and j - r >= 0 and j + r < H and i - r >= 0 and i + r < W and free[j - r:j + r + 1, i - r:i + r + 1].all(): r += 1
-                if best is None or r > best[0]: best = (r, i, j)
-        sx, sz = xmin + best[1] * vx, zmin + best[2] * vx
-    out = {'name': a.name, 'source': f'{a.input} voxelized at {vx} m, floor y={floor_y:.2f}', 'walls': walls, 'furn': furn, 'bounds': bounds, 'spawn': [round(sx, 2), round(sz, 2)], 'spawnYaw': 0}
-    json.dump(out, open(a.out, 'w'))
-    print(f'wrote {a.out}: walls {len(walls)} furniture {len(furn)} spawn {out["spawn"]}')
+                while r < 25 and j - r >= 0 and j + r < H and i - r >= 0 and i + r < W and free[j - r:j + r + 1, i - r:i + r + 1].all(): r += 1
+                if r > best[0]: best = (r, i, j)
+        sx, sz = x0 + best[1] * vx, z0 + best[2] * vx
+    out = {'name': a.name, 'source': f'{a.input}: floor y={fy}, voxel {vx} m, slab +{a.lo}..+{a.hi} m', 'walls': walls, 'furn': furns,
+           'bounds': bounds, 'spawn': [round(float(sx), 2), round(float(sz), 2)], 'spawnYaw': a.spawn_yaw}
+    json.dump(out, open(a.out, 'w'), separators=(',', ':'))
+    log(f'wrote {a.out} ({len(json.dumps(out)) / 1024:.0f} KB) spawn {out["spawn"]}')
 
 if __name__ == '__main__':
     main()
