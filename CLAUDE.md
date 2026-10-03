@@ -1,8 +1,8 @@
 # SIEGE AIM TRAINER — 引き継ぎメモ（クラウドセッションの要約）
 
 ブラウザで動く R6S（Rainbow Six Siege）風エイムトレーナー。静的サイト（`index.html` / `app.js` / `i18n.js` / `config.js` / `style.css`）。
-公開 URL: https://raychil0328.github.io/https-github.com-inoueyuta0328-beep-siege-aim-lab/
-`main` に push すると `.github/workflows/deploy.yml` が `gh-pages` ブランチへ公開（反映まで約 1〜2 分）。
+公開 URL: https://xs288120.xsrv.jp/skirmish1/（Xserver、メイン）／ https://raychil0328.github.io/https-github.com-inoueyuta0328-beep-siege-aim-lab/（GitHub Pages）
+`main` に push すると `.github/workflows/deploy-xserver.yml` が Xserver へ FTPS 転送し、`deploy.yml` が `gh-pages` ブランチへ公開する。
 
 ## オーナーの方針（これまでの会話で確定したこと）
 - **実在マップの再現はやめた。** r6maps トレース → ゲームデータ抽出（Oregon）まで試したが「再現度がひどい」と判断し全削除。以後は**完全オリジナルの室内マップ**のみ。Ubisoft のゲームメッシュは公開しない（派生データも不要になった）。
@@ -57,3 +57,9 @@
 8. 歩行キー（Alt）と ADS 中の移動速度（設定化、出典明記）。
 9. サイト選択を上部へ、キーバインド変更機能。
 10. アクセス解析・支援リンク（config.js）、マネタイズの検討。
+
+## ローカル開発・デプロイ
+- ビルド不要。`python -m http.server 8080` → http://localhost:8080（`.claude/launch.json` に `siege-aim-lab` として登録済み）。
+- Xserver: サーバー xs288120（sv16593.xserver.jp）。FTP アカウント `skirmish1@xs288120.xsrv.jp` は接続先が `public_html/skirmish1` に限定。GitHub Secrets `XSERVER_FTP_USER` / `XSERVER_FTP_PASSWORD` を使う。ドメインのトップ（`xs288120.xsrv.jp/`）は別サイトなので触らない。`horameter.com` / `typenova.jp` はこのアプリに使わない。
+- CLAUDE.md / README.md / `.claude/` / `.github/` は Xserver に上げない。
+- push はオーナーの指示があるときだけ。
