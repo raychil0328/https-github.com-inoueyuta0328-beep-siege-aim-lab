@@ -286,11 +286,11 @@ function addProp(x, z, w, d, h, kind = 'crate') { PROPS.push({ x, z, w, d, h, ki
 // wall along x (z fixed) from x1..x2, or along z (x fixed) from z1..z2, with door gaps [[a,b],...] in the running coordinate
 function wallX(z, x1, x2, doors = [], h = ROOM.h, t = 0.4) {
   for (const [a, b] of cut(x1, x2, doors)) addProp((a + b) / 2, z, b - a, t, h, 'wall');
-  for (const [a, b] of doors) DOORS.push({ x: (a + b) / 2, z, axis: 'x' });
+  for (const [a, b] of doors) if (b - a <= 2) DOORS.push({ x: (a + b) / 2, z, axis: 'x' });
 }
 function wallZ(x, z1, z2, doors = [], h = ROOM.h, t = 0.4) {
   for (const [a, b] of cut(z1, z2, doors)) addProp(x, (a + b) / 2, t, b - a, h, 'wall');
-  for (const [a, b] of doors) DOORS.push({ x, z: (a + b) / 2, axis: 'z' });
+  for (const [a, b] of doors) if (b - a <= 2) DOORS.push({ x, z: (a + b) / 2, axis: 'z' });
 }
 function cut(a, b, doors) { const out = []; let cur = Math.min(a, b); const end = Math.max(a, b); for (const [d0, d1] of [...doors].sort((p, q) => p[0] - q[0])) { if (d0 > cur) out.push([cur, d0]); cur = Math.max(cur, d1); } if (end > cur) out.push([cur, end]); return out.filter(([x, y]) => y - x > 0.05); }
 const R = (xmin, xmax, zmin, zmax) => ({ xmin, xmax, zmin, zmax });
@@ -300,15 +300,39 @@ const R = (xmin, xmax, zmin, zmax) => ({ xmin, xmax, zmin, zmax });
 //   HG 1.45 m : a STANDING bot behind it shows only its head (head bottom = 1.60 - 0.15)
 //   CG 0.95 m : a CROUCHED bot behind it shows only its head (head bottom = 1.05 - 0.15)
 //   TALL 2.4 m: racks / lockers that block the sightline completely; full walls = ROOM.h
-const HG = 1.45, CG = 0.95, TALL = 2.4;
+const HG = 1.45, CG = 0.95, TALL = 2.4, DW = 1.2;
 let OBJ_TIER = 2;   // 1 = walls + head-glitch cover only, 2 = + main cover, 3 = + small clutter
 function box(x, z, w, d, h, kind = 'crate', tier = 2) { if (tier <= OBJ_TIER) addProp(x, z, w, d, h, kind); }
 // head-glitch half walls (always present – they ARE the map)
 function lowX(z, x1, x2, h = HG, t = 0.4) { addProp((x1 + x2) / 2, z, Math.abs(x2 - x1), t, h, 'cover'); }
 function lowZ(x, z1, z2, h = HG, t = 0.4) { addProp(x, (z1 + z2) / 2, t, Math.abs(z2 - z1), h, 'cover'); }
-// office cubicle cross: 1.45 m partitions + four 0.75 m desks
-function cubicle(cx, cz, s = 3) { lowX(cz, cx - s, cx + s); lowZ(cx, cz - s, cz + s); for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(cx + sx * 1.6, cz + sz * 1.6, 1.6, 0.8, 0.75, 'furniture', 3); }
-function pillars(list, w = 0.6) { for (const [x, z] of list) box(x, z, w, w, ROOM.h, 'pillar', 1); }
+// Room grid: full-height walls on every column boundary (xs) and row boundary (zs). doorsX = [z, x] door in the
+// wall at z centred on x; doorsZ = [x, z]. gapsX = [z, x1, x2] / gapsZ = [x, z1, z2] remove a wall piece entirely
+// (merges two cells into one room). The outer boundary is the room shell and gets no wall.
+function cells({ xs, zs, doorsX = [], doorsZ = [], gapsX = [], gapsZ = [] }) {
+  const lo = Math.min(...zs), hi = Math.max(...zs);
+  for (const z of zs) { if (z === lo || z === hi) continue; const d = doorsX.filter(q => q[0] === z).map(q => [q[1] - DW / 2, q[1] + DW / 2]).concat(gapsX.filter(q => q[0] === z).map(q => [q[1], q[2]])); wallX(z, Math.min(...xs), Math.max(...xs), d); }
+  const xl = Math.min(...xs), xh = Math.max(...xs);
+  for (const x of xs) { if (x === xl || x === xh) continue; const d = doorsZ.filter(q => q[0] === x).map(q => [q[1] - DW / 2, q[1] + DW / 2]).concat(gapsZ.filter(q => q[0] === x).map(q => [q[1], q[2]])); wallZ(x, lo, hi, d); }
+}
+// cover piece at a room centre: lx / lz = 3 m head-glitch wall, hg / cg = crate, tall = rack, desk = 0.95 m table, pil = pillar
+function piece(cx, cz, type, tier = 2) {
+  switch (type) {
+    case 'lx': lowX(cz, cx - 1.5, cx + 1.5); break;
+    case 'lz': lowZ(cx, cz - 1.5, cz + 1.5); break;
+    case 'lx2': lowX(cz, cx - 1, cx + 1); break;
+    case 'lz2': lowZ(cx, cz - 1, cz + 1); break;
+    case 'hg': box(cx, cz, 1.6, 1.6, HG, 'crate', tier); break;
+    case 'cg': box(cx, cz, 1.6, 1.6, CG, 'crate', tier); break;
+    case 'tall': box(cx, cz, 0.9, 3.0, TALL, 'furniture', 1); break;
+    case 'tallx': box(cx, cz, 3.0, 0.9, TALL, 'furniture', 1); break;
+    case 'desk': box(cx, cz, 2.4, 1.0, CG, 'furniture', tier); break;
+    case 'deskz': box(cx, cz, 1.0, 2.4, CG, 'furniture', tier); break;
+    case 'cab': box(cx, cz, 1.0, 1.0, HG, 'furniture', tier); break;
+    case 'pil': box(cx, cz, 0.6, 0.6, ROOM.h, 'pillar', 1); break;
+  }
+}
+function pieces(list) { for (const [x, z, t, tier] of list) piece(x, z, t, tier); }
 
 const MAPS = {
   // internal: used by AIM LAB (tracking) modes only – no props are drawn there
@@ -318,106 +342,97 @@ const MAPS = {
     zones: { near: [R(-12, 12, -12, -2)], mid: [R(-12, 12, -28, -14)], far: [R(-12, 12, -50, -32)] },
     build() {},
   },
-  // ---- WAREHOUSE: loading dock → open floor with pallet rows and a rack spine, offices left, caged storage right ----
+  // ---- WAREHOUSE: loading dock in front, then a 5 x 4 grid of storage rooms (6–7 m) with offset doorways ----
   ware: {
-    name: 'ウェアハウス', room: { xmin: -18, xmax: 18, zmin: -24, zmax: 8, h: 3.6 },
+    name: 'ウェアハウス', room: { xmin: -18, xmax: 18, zmin: -24, zmax: 8, h: 3.4 },
     spawn: { x: 0, z: 6.5, yaw: 0 }, zones: 'dist',
     build() {
-      // loading dock (spawn side): pallet rows for the player to reset vision behind
-      lowX(2.0, -7, -3); lowX(2.0, 3, 7);
-      box(-11, 5, 1.6, 1.6, HG, 'crate', 2); box(11, 5, 1.6, 1.6, HG, 'crate', 2);
-      // left wing: corridor wall + two offices
-      wallZ(-8, -24, 8, [[-19.6, -18.4], [-9.6, -8.4], [2.4, 3.6]]);
-      wallX(-6, -18, -8, [[-10.6, -9.4]]); wallX(-15, -18, -8, [[-16.6, -15.4]]);
-      box(-13, -2, 2.4, 1.0, CG, 'furniture', 2); box(-16.5, 1, 1.0, 2.0, HG, 'furniture', 2);
-      box(-13, -10.5, 2.4, 1.0, CG, 'furniture', 2); box(-10, -13.5, 1.0, 2.0, HG, 'furniture', 2); box(-16.5, -8.5, 1.0, 1.6, TALL, 'furniture', 3);
-      box(-14, -19.5, 3.0, 1.2, HG, 'crate', 2); box(-10.5, -22.5, 1.6, 1.6, CG, 'crate', 3); box(-16.5, -22, 1.2, 1.2, HG, 'crate', 3);
-      // right wing: caged storage with tall racks
-      wallZ(8, -24, 8, [[-15.6, -14.4], [-3.6, -2.4], [4.4, 5.6]]);
-      box(12, -6, 0.9, 10, TALL, 'furniture', 1); box(16, -14, 0.9, 10, TALL, 'furniture', 1);
-      box(10, -18, 1.6, 1.6, HG, 'crate', 2); box(14, 0, 2.4, 1.2, HG, 'crate', 2); box(16, 4, 1.6, 1.6, CG, 'crate', 3); box(10.5, -22, 1.6, 1.6, CG, 'crate', 3); box(14.5, -21, 1.2, 1.2, HG, 'crate', 2);
-      // main floor
-      pillars([[-4, -5], [4, -5], [-4, -17], [4, -17]]);
-      box(0, -12, 0.9, 6, TALL, 'furniture', 1);                 // central rack spine
-      lowX(-8.5, -6, -2); lowX(-8.5, 2, 6);                       // pallet rows (head only)
-      lowZ(-6.5, -16, -12); lowZ(6.5, -16, -12);
-      box(-3, -1, 1.6, 1.6, HG, 'crate', 2); box(3.5, -1.5, 1.6, 1.6, CG, 'crate', 3);
-      box(-5, -21, 2.4, 1.2, HG, 'crate', 2); box(5, -21, 2.4, 1.2, HG, 'crate', 2); box(0, -19, 1.6, 1.6, CG, 'crate', 2); box(0, -23, 1.6, 1.6, HG, 'crate', 3);
-      box(-2, -9, 1.2, 1.2, CG, 'crate', 3); box(3, -14.5, 1.2, 1.2, CG, 'crate', 3);
+      cells({
+        xs: [-18, -11, -4, 4, 11, 18], zs: [8, 2, -4, -10, -17, -24],
+        gapsZ: [[-4, 2, 8], [4, 2, 8]],                                   // dock = one wide room
+        doorsX: [[2, -15], [2, -8], [2, 1], [2, 9], [2, 14], [-4, -15], [-4, -6], [-4, 3], [-4, 14], [-10, -12], [-10, -1], [-10, 6], [-10, 16], [-17, -7], [-17, 2], [-17, 13]],
+        doorsZ: [[-11, 5], [11, 5], [-11, -2], [-11, -14], [-11, -19], [-4, -7], [-4, -21], [4, -1], [4, -12], [4, -19], [11, 1], [11, -8], [11, -22]],
+      });
+      // dock
+      lowX(4.5, -8.5, -5.5); lowX(4.5, 5.5, 8.5); box(-2.6, 3.4, 1.6, 1.6, HG, 'crate', 2); box(2.8, 3.4, 1.6, 1.6, HG, 'crate', 2);
+      pieces([[-14.5, 5, 'cg', 3], [14.5, 5, 'tall']]);
+      // row 1 (z -4..2)
+      pieces([[-14.5, -1, 'lx'], [-7.5, -1, 'hg'], [0, -1, 'lz'], [7.5, -1, 'tall'], [7.5, 0.8, 'cg', 3], [14.5, -1, 'lx']]);
+      // row 2 (z -10..-4)
+      pieces([[-14.5, -7, 'lz'], [-7.5, -7, 'lx'], [-6, -9, 'cg', 3], [0, -7, 'hg'], [1.8, -5.5, 'cg', 3], [7.5, -7, 'lx'], [14.5, -7, 'tall'], [13, -8.5, 'hg']]);
+      // row 3 (z -17..-10)
+      pieces([[-14.5, -13.5, 'hg'], [-7.5, -13.5, 'lz'], [0, -13.5, 'lx'], [0, -15.5, 'cg', 3], [7.5, -13.5, 'hg'], [6, -15.5, 'cg', 3], [14.5, -13.5, 'lz']]);
+      // row 4 (z -24..-17)
+      pieces([[-14.5, -20.5, 'lx'], [-7.5, -20.5, 'tall'], [-6, -22.5, 'hg'], [0, -20.5, 'lz'], [7.5, -20.5, 'lx'], [14.5, -20.5, 'hg'], [16, -22.5, 'cg', 3]]);
     },
   },
-  // ---- OFFICE: reception → open-plan cubicles (1.45 m partitions) → three meeting rooms; storage / copy room on the sides ----
+  // ---- OFFICE: lobby, then 5 x 4 small offices / meeting rooms; partitions, desks and cabinets as head-glitch cover ----
   office: {
     name: 'オフィス', room: { xmin: -16, xmax: 16, zmin: -22, zmax: 6, h: 3.0 },
-    spawn: { x: 0, z: 4.8, yaw: 0 }, zones: 'dist',
+    spawn: { x: 0, z: 4.5, yaw: 0 }, zones: 'dist',
     build() {
-      lowX(1.0, -2.5, 2.5);                                       // reception counter
-      box(-7, 3, 2.0, 0.9, CG, 'furniture', 3); box(7, 3, 2.0, 0.9, CG, 'furniture', 3);
-      // left: storage (z -16..-8) + print room (z -8..2)
-      wallZ(-11, -16, 2, [[-9.6, -8.4], [-2.6, -1.4]]); wallX(-8, -16, -11);
-      box(-14.5, -12, 1.0, 3.0, TALL, 'furniture', 1); box(-13, -15, 1.2, 1.2, HG, 'crate', 2); box(-12.5, -3, 1.6, 1.0, HG, 'furniture', 2); box(-14.8, 0.5, 1.2, 1.2, CG, 'crate', 3);
-      // right: server room (z -16..-8) + copy room (z -8..2)
-      wallZ(11, -16, 2, [[-13.6, -12.4], [-5.6, -4.4]]); wallX(-8, 11, 16);
-      box(14.5, -12, 1.0, 3.0, TALL, 'furniture', 1); box(13, -3.5, 1.6, 1.0, HG, 'furniture', 2); box(13.5, 0.5, 1.2, 1.2, CG, 'crate', 3);
-      // meeting rooms along the far wall
-      wallX(-16, -16, 16, [[-10.6, -9.4], [-0.6, 0.6], [9.4, 10.6]]);
-      wallZ(-5.5, -22, -16); wallZ(5.5, -22, -16);
-      box(-10.5, -19.5, 3.0, 1.2, CG, 'furniture', 2); box(0, -19.5, 3.0, 1.2, CG, 'furniture', 2); box(10.5, -19.5, 3.0, 1.2, CG, 'furniture', 2);
-      box(-14.5, -18, 0.8, 0.8, HG, 'furniture', 3); box(14.5, -21, 1.6, 0.8, HG, 'furniture', 3);
-      // open plan: four cubicle crosses
-      cubicle(-6, -4); cubicle(5, -4); cubicle(-6, -11.5); cubicle(5, -11.5);
-      pillars([[-0.5, -8], [-0.5, -14]]);
-      box(-1.5, -1, 1.2, 1.2, CG, 'crate', 3);
+      cells({
+        xs: [-16, -10, -4, 4, 10, 16], zs: [6, 0, -6, -12, -17, -22],
+        doorsX: [[0, -13], [0, -6], [0, 1], [0, 8], [0, 13], [-6, -11.5], [-6, -8], [-6, 2], [-6, 14], [-12, -13], [-12, -1], [-12, 7], [-12, 11.5], [-17, -5.5], [-17, 3], [-17, 13]],
+        doorsZ: [[-10, 3], [10, 3], [-4, 3], [4, 3], [-10, -3], [-10, -15], [-10, -20], [-4, -9], [-4, -19.5], [4, -2], [4, -14.5], [4, -20], [10, -4], [10, -9], [10, -19]],
+      });
+      // lobby
+      lowX(1.5, -3.5, -0.5); box(-7.5, 3, 2.0, 0.9, CG, 'furniture', 3); box(7.5, 3, 2.0, 0.9, CG, 'furniture', 3);
+      pieces([[-13, 3, 'cab', 3], [13, 3, 'cab', 3]]);
+      // row 1 (z -6..0)
+      pieces([[-13, -3, 'desk'], [-7, -3, 'lz'], [-8, -1, 'cab', 3], [0, -3, 'lx'], [1.5, -4.5, 'desk', 3], [7, -3, 'deskz'], [13, -3, 'lx']]);
+      // row 2 (z -12..-6)
+      pieces([[-13, -9, 'lx'], [-7, -9, 'desk'], [-5.5, -7, 'cab', 3], [0, -9, 'tall'], [-2.5, -7, 'cab'], [7, -9, 'lx'], [13, -9, 'desk'], [15, -10.5, 'cab', 3]]);
+      // row 3 (z -17..-12)
+      pieces([[-13, -14.5, 'deskz'], [-7, -14.5, 'lx'], [0, -14.5, 'desk'], [2, -16, 'cab', 3], [7, -14.5, 'lz2'], [13, -14.5, 'tallx']]);
+      // row 4 (z -22..-17): meeting rooms
+      pieces([[-13, -19.5, 'desk'], [-7, -19.5, 'lz2'], [0, -19.5, 'lx'], [7, -19.5, 'desk'], [13, -19.5, 'lx'], [14.5, -21, 'cab', 3]]);
     },
   },
-  // ---- BUNKER: entrance hall → three rows of rooms connected by offset doorways → long rear gallery; sandbag half walls everywhere ----
+  // ---- BUNKER: 7 x 4 grid of small concrete rooms with staggered doors, plus a rear gallery; sandbag half walls ----
   bunker: {
     name: 'バンカー', room: { xmin: -20, xmax: 20, zmin: -26, zmax: 6, h: 2.8 },
-    spawn: { x: -16, z: 3.5, yaw: 0.5 }, zones: 'dist',
+    spawn: { x: -17, z: 3.5, yaw: 0.5 }, zones: 'dist',
     build() {
-      // front row: entrance hall (x -20..-10) | armory (x -10..12) | stairwell (x 12..20)
-      wallZ(-10, -6, 6, [[-1.6, -0.4]]); wallZ(12, -6, 6, [[2.4, 3.6]]);
-      box(-14, -2.5, 1.6, 1.6, HG, 'crate', 2);                  // sandbags in the entrance hall (player cover)
-      lowX(-1, -8, -4); lowZ(6, -4, 0); box(2, 3, 2.0, 1.2, CG, 'crate', 2); box(-6, 3.5, 1.2, 1.2, HG, 'crate', 3); box(16, 2, 3.0, 1.6, CG, 'furniture', 2);
-      // row 1 (z -14..-6)
-      wallX(-6, -20, 20, [[-13.6, -12.4], [-1.6, -0.4], [15.4, 16.6]]);
-      wallZ(-8, -14, -6, [[-10.6, -9.4]]); wallZ(4, -14, -6, [[-12.6, -11.4]]); wallZ(12, -14, -6, [[-8.6, -7.4]]);
-      lowZ(-14, -12, -8); lowX(-10, -6, -2); lowX(-11, 6, 10);
-      box(16, -10, 1.6, 1.6, HG, 'crate', 2); box(0, -12, 1.6, 1.6, CG, 'crate', 3); box(-17, -12, 1.2, 1.2, CG, 'crate', 3); box(8, -8, 1.2, 1.2, CG, 'crate', 3);
-      // row 2 (z -20..-14)
-      wallX(-14, -20, 20, [[-7.6, -6.4], [5.4, 6.6], [17.4, 18.6]]);
-      wallZ(-2, -20, -14, [[-17.6, -16.4]]); wallZ(10, -20, -14);
-      lowX(-17, -16, -11); lowZ(1, -19, -15);
-      box(-5, -17, 1.6, 1.6, HG, 'crate', 2); box(14, -17, 2.4, 1.2, HG, 'crate', 2); box(18, -17, 1.2, 1.2, CG, 'crate', 3); box(7, -18, 1.2, 1.2, CG, 'crate', 3);
-      // row 3: rear gallery (z -26..-20)
-      wallX(-20, -20, 20, [[-16.6, -15.4], [-5.6, -4.4], [3.4, 4.6], [12.4, 13.6]]);
-      lowZ(-10, -25, -21); lowZ(0, -25, -21); lowZ(9, -25, -21);
-      box(-6, -23, 1.6, 1.6, CG, 'crate', 3); box(16, -23, 1.6, 1.6, HG, 'crate', 2); box(4, -24.5, 1.2, 1.2, CG, 'crate', 3); box(-14, -24, 2.4, 1.0, HG, 'crate', 2);
+      cells({
+        xs: [-20, -14, -8, -2, 4, 10, 14, 20], zs: [6, 0, -6, -12, -19, -26],
+        gapsZ: [[-8, -26, -19], [4, -26, -19], [14, -26, -19]],         // rear gallery pieces merged
+        doorsX: [[0, -18], [0, -10], [0, -3], [0, 8], [0, 16], [-6, -16], [-6, -5], [-6, 2], [-6, 12], [-6, 18], [-12, -11], [-12, -7], [-12, 1], [-12, 7], [-12, 16], [-19, -17], [-19, -4], [-19, 6], [-19, 12], [-19, 18]],
+        doorsZ: [[-14, 3], [-8, -3], [-2, 3], [4, -2], [10, 3], [14, -3], [-14, -9], [-2, -9], [10, -9], [14, -8], [-14, -15], [-8, -16], [-2, -14], [4, -16], [10, -14], [-14, -22.5], [-2, -22.5], [10, -22.5]],
+      });
+      pieces([[-18, 1.2, 'lx2'], [-11, 2, 'lz2'], [-5, 3, 'lx2'], [1, 3, 'hg'], [7, 2, 'lz2'], [12, 3, 'cg', 3], [17, 2.5, 'lx2']]);
+      pieces([[-17, -3, 'lx2'], [-11, -3, 'cg', 3], [-5, -3, 'lz2'], [1, -3, 'lx2'], [7, -3, 'hg'], [12, -3, 'hg'], [17, -3, 'hg']]);
+      pieces([[-17, -9, 'hg'], [-11, -9, 'lx2'], [-5, -9, 'cg', 3], [1, -9, 'lz2'], [7, -9, 'lx2'], [12, -9, 'hg'], [17, -9, 'lz2']]);
+      pieces([[-17, -15.5, 'lz2'], [-11, -15.5, 'hg'], [-5, -15.5, 'lx2'], [1, -15.5, 'cg', 3], [7, -15.5, 'lz2'], [12, -15.5, 'lz2'], [17, -15.5, 'cg', 3]]);
+      // rear gallery (three long rooms): sandbag walls across the line of fire
+      lowZ(-11, -24.5, -20.5); lowZ(-5, -24.5, -20.5); lowZ(1, -24.5, -20.5); lowZ(7, -24.5, -20.5); lowZ(12, -24.5, -20.5); lowZ(17, -24.5, -20.5);
+      pieces([[-17, -22.5, 'hg'], [-8, -22.5, 'cg', 3], [4, -22.5, 'cg', 3], [14.5, -22.5, 'hg']]);
     },
   },
-  // ---- ATRIUM: entrance desk → pillared hall with kiosks and planters → café; shop fronts on both sides ----
+  // ---- ATRIUM: central hall split by pillars and kiosks, flanked by two columns of small shops with back rooms ----
   atrium: {
-    name: 'アトリウム', room: { xmin: -17, xmax: 17, zmin: -24, zmax: 8, h: 4.2 },
+    name: 'アトリウム', room: { xmin: -17, xmax: 17, zmin: -24, zmax: 8, h: 4.0 },
     spawn: { x: 0, z: 6.5, yaw: 0 }, zones: 'dist',
     build() {
-      lowX(2.5, -2.5, 2.5);                                       // info desk
-      box(-7, 5, 2.4, 1.2, CG, 'furniture', 2); box(7, 5, 2.4, 1.2, CG, 'furniture', 2);
-      // shop fronts (left / right), three shops each
+      cells({
+        xs: [-17, -10, -4, 4, 10, 17], zs: [8, 2, -4, -10, -17, -24],
+        gapsX: [[2, -4, 4], [-10, -4, 4]],                                 // hall runs z 8..-4 and -10..-17 in two halves
+        doorsX: [[2, -13.5], [2, -7], [2, 7], [2, 13.5], [-4, -1.5], [-4, 1.5], [-4, -14], [-4, -6], [-4, 8], [-4, 13], [-10, -12], [-10, -8], [-10, 6], [-10, 15], [-17, -2], [-17, 2], [-17, -14], [-17, -7], [-17, 7], [-17, 13]],
+        doorsZ: [[-10, 5], [10, 5], [-4, -1], [4, -1], [-10, -7], [10, -7], [-4, -7], [4, -7], [-10, -13.5], [10, -13.5], [-4, -13], [4, -13], [-10, -20.5], [10, -20.5], [-4, -21], [4, -21], [-10, -1], [10, -1]],
+      });
+      // entrance hall (z 2..8 and -4..2 merged): desk + planters + pillars
+      lowX(2.5, -2.5, 2.5); box(-7, 5, 2.4, 1.2, CG, 'furniture', 2); box(7, 5, 2.4, 1.2, CG, 'furniture', 2);
+      pieces([[-2.5, -1.5, 'pil'], [2.5, -1.5, 'pil'], [0, -2, 'cg', 3]]);
+      // central rooms
+      pieces([[0, -7, 'lx'], [-2.5, -8.5, 'cg', 3], [0, -13.5, 'hg'], [2.5, -12, 'pil'], [-2.5, -15, 'pil'], [0, -20.5, 'lx'], [0, -22.3, 'cg', 3]]);
+      // shops (both sides)
       for (const s of [-1, 1]) {
-        wallZ(10 * s, -24, 2, [[-21.6, -20.4], [-14.6, -13.4], [-6.6, -5.4], [0.4, 1.6]]);
-        wallX(-10, 10 * s, 17 * s); wallX(-18, 10 * s, 17 * s);
-        box(14 * s, -3, 3.0, 1.0, HG, 'furniture', 2); box(16.4 * s, -7, 0.8, 4.0, TALL, 'furniture', 1); box(13 * s, 0.5, 1.2, 1.2, CG, 'crate', 3);
-        box(13 * s, -13.5, 1.6, 1.6, CG, 'crate', 3); box(15.5 * s, -16.5, 2.4, 0.8, HG, 'furniture', 2);
-        box(13.5 * s, -21, 3.0, 1.0, HG, 'furniture', 2); box(16 * s, -23, 1.2, 1.2, CG, 'crate', 3);
+        pieces([[13.5 * s, 5, 'tall'], [7 * s, 5, 'cg', 3],
+          [13.5 * s, -1, 'lx'], [7 * s, -1, 'cab'], [7 * s, -2.8, 'cg', 3],
+          [13.5 * s, -7, 'hg'], [7 * s, -7, 'lz'], [15 * s, -8.5, 'cg', 3],
+          [13.5 * s, -13.5, 'lx'], [7 * s, -13.5, 'tall'], [8.5 * s, -15.5, 'cg', 3],
+          [13.5 * s, -20.5, 'lz'], [7 * s, -20.5, 'hg'], [12 * s, -22.5, 'cg', 3]]);
       }
-      // central hall
-      pillars([[-6, -4], [6, -4], [-6, -12], [6, -12], [-6, -20], [6, -20]], 0.8);
-      box(0, -6, 2.4, 2.4, HG, 'furniture', 1);                   // kiosk
-      box(-3, -14, 2.0, 1.2, HG, 'furniture', 2); box(3.5, -17, 2.0, 1.2, HG, 'furniture', 2);
-      box(-3.5, -9.5, 1.6, 1.6, CG, 'crate', 3); box(3.5, -10, 1.6, 1.6, CG, 'crate', 3);
-      // café at the far end
-      lowX(-19, -8, -3); lowX(-19, 3, 8);
-      box(-5, -22, 1.2, 1.2, CG, 'furniture', 3); box(5, -22, 1.2, 1.2, CG, 'furniture', 3); box(0, -22.5, 2.4, 1.0, HG, 'furniture', 2);
     },
   },
 };
