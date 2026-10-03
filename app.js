@@ -421,7 +421,7 @@ function detectDoors() {
   const scan = (arr, key, lo, hi, axis) => {
     for (let k = 0; k < arr.length; k++) {
       const a = arr[k]; let next = null;
-      for (let m = k + 1; m < arr.length && Math.abs(arr[m][key] - a[key]) < 0.25; m++) { const b = arr[m]; if (b[lo] > a[hi] - 0.01 && (!next || b[lo] < next[lo])) next = b; }
+      for (let m = k + 1; m < arr.length && Math.abs(arr[m][key] - a[key]) < 0.45; m++) { const b = arr[m]; if (b[lo] > a[hi] - 0.01 && (!next || b[lo] < next[lo])) next = b; }
       if (!next) continue;
       const gap = next[lo] - a[hi];
       if (gap >= 0.8 && gap <= 1.7) DOORS.push(axis === 'x' ? { x: (a[hi] + next[lo]) / 2, z: a.z, axis } : { x: a.x, z: (a[hi] + next[lo]) / 2, axis });
