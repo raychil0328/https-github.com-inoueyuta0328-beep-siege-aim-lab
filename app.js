@@ -68,7 +68,7 @@ const WEAPON = {
 const settings = {
   dpi: 800, fov: 90, sensH: 10, sensV: 10, msmu: 0.02, xfactor: 0.02,
   ads: { '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 },
-  scope: 2.5, sight: '2.5', reticle: '#ff2b2b', ammomode: 'mag', adsmode: 'hold', crouchmode: 'toggle', leanmode: 'hold', bots: 'auto', map: 'oregon1f', recoil: 1, botsize: 'm', objects: 'large', menuMode: 'combat', difficultyLab: 1, durationLab: 60, invert: false,
+  scope: 2.5, sight: '2.5', reticle: '#ff2b2b', ammomode: 'mag', adsmode: 'hold', crouchmode: 'toggle', leanmode: 'hold', bots: 'auto', map: 'ware', recoil: 1, botsize: 'm', objects: 'large', menuMode: 'combat', difficultyLab: 1, durationLab: 60, invert: false,
   difficulty: 1, duration: 60, mode: 'cqb',
 };
 const ADS_IDS = { '1': 'ads1', '1.5': 'ads15', '2': 'ads2', '2.5': 'ads25', '3': 'ads3', '12': 'ads12' };
@@ -79,7 +79,7 @@ function loadSettings() {
   settings.ads = Object.assign({ '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 }, settings.ads || {});
   for (const id of SIMPLE_IDS) $(id).value = settings[id];
   for (const k in ADS_IDS) $(ADS_IDS[k]).value = settings.ads[k];
-  $('sight').value = settings.sight || '2.5'; $('reticle').value = settings.reticle || '#ff2b2b'; $('ammomode').value = settings.ammomode || 'mag'; $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle'; $('leanmode').value = settings.leanmode || 'hold'; $('bots').value = String(settings.bots ?? 'auto'); $('map').value = MAPS[settings.map] ? settings.map : 'hall'; $('recoil').value = String(settings.recoil ?? 1); $('botsize').value = settings.botsize || 'm';
+  $('sight').value = settings.sight || '2.5'; $('reticle').value = settings.reticle || '#ff2b2b'; $('ammomode').value = settings.ammomode || 'mag'; $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle'; $('leanmode').value = settings.leanmode || 'hold'; $('bots').value = String(settings.bots ?? 'auto'); $('map').value = MAPS[settings.map] && settings.map !== 'hall' ? settings.map : 'ware'; $('recoil').value = String(settings.recoil ?? 1); $('botsize').value = settings.botsize || 'm';
   $('invert').checked = settings.invert;
   $('difficulty').value = String(settings.difficulty); $('duration').value = String(settings.duration);
   $('difficulty-lab').value = String(settings.difficultyLab ?? 1); $('duration-lab').value = String(settings.durationLab ?? 60); $('objects').value = settings.objects || 'large';
@@ -295,141 +295,137 @@ function wallZ(x, z1, z2, doors = [], h = ROOM.h, t = 0.4) {
 function cut(a, b, doors) { const out = []; let cur = Math.min(a, b); const end = Math.max(a, b); for (const [d0, d1] of [...doors].sort((p, q) => p[0] - q[0])) { if (d0 > cur) out.push([cur, d0]); cur = Math.max(cur, d1); } if (end > cur) out.push([cur, end]); return out.filter(([x, y]) => y - x > 0.05); }
 const R = (xmin, xmax, zmin, zmax) => ({ xmin, xmax, zmin, zmax });
 
+// ---- original indoor maps ----
+// Cover heights are tuned to the operator geometry (head centre = eye height, head radius 0.15):
+//   HG 1.45 m : a STANDING bot behind it shows only its head (head bottom = 1.60 - 0.15)
+//   CG 0.95 m : a CROUCHED bot behind it shows only its head (head bottom = 1.05 - 0.15)
+//   TALL 2.4 m: racks / lockers that block the sightline completely; full walls = ROOM.h
+const HG = 1.45, CG = 0.95, TALL = 2.4;
+let OBJ_TIER = 2;   // 1 = walls + head-glitch cover only, 2 = + main cover, 3 = + small clutter
+function box(x, z, w, d, h, kind = 'crate', tier = 2) { if (tier <= OBJ_TIER) addProp(x, z, w, d, h, kind); }
+// head-glitch half walls (always present – they ARE the map)
+function lowX(z, x1, x2, h = HG, t = 0.4) { addProp((x1 + x2) / 2, z, Math.abs(x2 - x1), t, h, 'cover'); }
+function lowZ(x, z1, z2, h = HG, t = 0.4) { addProp(x, (z1 + z2) / 2, t, Math.abs(z2 - z1), h, 'cover'); }
+// office cubicle cross: 1.45 m partitions + four 0.75 m desks
+function cubicle(cx, cz, s = 3) { lowX(cz, cx - s, cx + s); lowZ(cx, cz - s, cz + s); for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(cx + sx * 1.6, cz + sz * 1.6, 1.6, 0.8, 0.75, 'furniture', 3); }
+function pillars(list, w = 0.6) { for (const [x, z] of list) box(x, z, w, w, ROOM.h, 'pillar', 1); }
+
 const MAPS = {
+  // internal: used by AIM LAB (tracking) modes only – no props are drawn there
   hall: {
     name: 'トレーニングホール', room: { xmin: -12, xmax: 12, zmin: -52, zmax: 10, h: 5 },
     spawn: { x: 0, z: 5.5, yaw: 0 },
     zones: { near: [R(-12, 12, -12, -2)], mid: [R(-12, 12, -28, -14)], far: [R(-12, 12, -50, -32)] },
+    build() {},
+  },
+  // ---- WAREHOUSE: loading dock → open floor with pallet rows and a rack spine, offices left, caged storage right ----
+  ware: {
+    name: 'ウェアハウス', room: { xmin: -18, xmax: 18, zmin: -24, zmax: 8, h: 3.6 },
+    spawn: { x: 0, z: 6.5, yaw: 0 }, zones: 'dist',
     build() {
-      addProp(-5.5, -0.6, 7.0, 0.4, 2.4, 'wall'); addProp(4.5, -0.6, 7.0, 0.4, 2.4, 'wall');
-      DOORS.push({ x: -0.5, z: -0.6, axis: 'x' });
-      addProp(-3.0, 2.4, 1.6, 1.6, 1.2); addProp(3.2, 2.0, 1.6, 1.6, 1.2); addProp(-8.5, 4.5, 1.2, 1.2, 2.0, 'pillar'); addProp(8.5, 4.0, 1.2, 1.2, 2.0, 'pillar'); addProp(0, 7.5, 1.2, 1.2, 0.9);
-      addProp(-6, -5, 1.6, 1.6, 1.2); addProp(6, -6, 1.6, 1.6, 1.2); addProp(0, -9, 3.0, 1.0, 2.2, 'wall'); addProp(-9, -10, 1.2, 1.2, 1.2); addProp(9, -11, 1.2, 1.2, 2.0, 'pillar'); addProp(-2.5, -3, 1.2, 1.2, 0.9);
-      addProp(-7, -17, 2.0, 1.0, 2.2, 'wall'); addProp(7, -19, 2.0, 1.0, 2.2, 'wall'); addProp(0, -22, 1.6, 1.6, 1.2); addProp(-3.5, -26, 1.6, 1.6, 1.2); addProp(4, -25, 1.2, 1.2, 2.0, 'pillar'); addProp(-10, -22, 1.6, 1.6, 1.2); addProp(10, -27, 1.6, 1.6, 1.2);
-      addProp(-5, -35, 2.4, 1.0, 2.2, 'wall'); addProp(6, -38, 1.6, 1.6, 1.2); addProp(0, -42, 1.6, 1.6, 1.2); addProp(-8, -45, 1.2, 1.2, 2.0, 'pillar'); addProp(8, -47, 2.4, 1.0, 2.2, 'wall'); addProp(-2, -49, 1.6, 1.6, 1.2);
+      // loading dock (spawn side): pallet rows for the player to reset vision behind
+      lowX(2.0, -7, -3); lowX(2.0, 3, 7);
+      box(-11, 5, 1.6, 1.6, HG, 'crate', 2); box(11, 5, 1.6, 1.6, HG, 'crate', 2);
+      // left wing: corridor wall + two offices
+      wallZ(-8, -24, 8, [[-19.6, -18.4], [-9.6, -8.4], [2.4, 3.6]]);
+      wallX(-6, -18, -8, [[-10.6, -9.4]]); wallX(-15, -18, -8, [[-16.6, -15.4]]);
+      box(-13, -2, 2.4, 1.0, CG, 'furniture', 2); box(-16.5, 1, 1.0, 2.0, HG, 'furniture', 2);
+      box(-13, -10.5, 2.4, 1.0, CG, 'furniture', 2); box(-10, -13.5, 1.0, 2.0, HG, 'furniture', 2); box(-16.5, -8.5, 1.0, 1.6, TALL, 'furniture', 3);
+      box(-14, -19.5, 3.0, 1.2, HG, 'crate', 2); box(-10.5, -22.5, 1.6, 1.6, CG, 'crate', 3); box(-16.5, -22, 1.2, 1.2, HG, 'crate', 3);
+      // right wing: caged storage with tall racks
+      wallZ(8, -24, 8, [[-15.6, -14.4], [-3.6, -2.4], [4.4, 5.6]]);
+      box(12, -6, 0.9, 10, TALL, 'furniture', 1); box(16, -14, 0.9, 10, TALL, 'furniture', 1);
+      box(10, -18, 1.6, 1.6, HG, 'crate', 2); box(14, 0, 2.4, 1.2, HG, 'crate', 2); box(16, 4, 1.6, 1.6, CG, 'crate', 3); box(10.5, -22, 1.6, 1.6, CG, 'crate', 3); box(14.5, -21, 1.2, 1.2, HG, 'crate', 2);
+      // main floor
+      pillars([[-4, -5], [4, -5], [-4, -17], [4, -17]]);
+      box(0, -12, 0.9, 6, TALL, 'furniture', 1);                 // central rack spine
+      lowX(-8.5, -6, -2); lowX(-8.5, 2, 6);                       // pallet rows (head only)
+      lowZ(-6.5, -16, -12); lowZ(6.5, -16, -12);
+      box(-3, -1, 1.6, 1.6, HG, 'crate', 2); box(3.5, -1.5, 1.6, 1.6, CG, 'crate', 3);
+      box(-5, -21, 2.4, 1.2, HG, 'crate', 2); box(5, -21, 2.4, 1.2, HG, 'crate', 2); box(0, -19, 1.6, 1.6, CG, 'crate', 2); box(0, -23, 1.6, 1.6, HG, 'crate', 3);
+      box(-2, -9, 1.2, 1.2, CG, 'crate', 3); box(3, -14.5, 1.2, 1.2, CG, 'crate', 3);
     },
   },
-  // ---- Clubhouse basement (schematic): Garage / Church / Arsenal / Gym / Basement Hallway / Red & Blue Stairs ----
-  clubhouse: {
-    name: 'クラブハウス 地下', room: { xmin: -18, xmax: 18, zmin: -22, zmax: 6, h: 3.2 },
-    spawn: { x: 5, z: 4.2, yaw: 0 },   // basement entrance (south), looking north into Arsenal
-    zones: { near: [R(0, 10, -8, 6)], mid: [R(-10, 10, -12, 4)], far: [R(-18, -4, -22, -8), R(10, 18, -22, 2)] },
+  // ---- OFFICE: reception → open-plan cubicles (1.45 m partitions) → three meeting rooms; storage / copy room on the sides ----
+  office: {
+    name: 'オフィス', room: { xmin: -16, xmax: 16, zmin: -22, zmax: 6, h: 3.0 },
+    spawn: { x: 0, z: 4.8, yaw: 0 }, zones: 'dist',
     build() {
-      wallX(-8, -18, 0, [[-7.6, -6.4]]);                     // Garage south wall (door -> Church)
-      wallZ(-4, -22, -8, [[-11.4, -10.2]]);                  // Garage east wall (door -> Hallway)
-      wallZ(0, -22, -12);                                    // Red stairs east wall
-      wallX(-12, -4, 0, [[-2.6, -1.4]]);                     // Red stairs -> Hallway
-      wallX(-8, 0, 10, [[-2.6, -1.4], [4.4, 5.6]]);          // Hallway south wall (doors -> Church, Arsenal)
-      wallX(-12, 0, 10);                                     // Hallway north wall
-      wallZ(0, -8, 4, [[-3.6, -2.4]]);                       // Church | Arsenal (door)
-      wallX(0, 0, 10, [[4.4, 5.6]]);                         // Arsenal south wall (door -> Entrance)
-      wallZ(10, -22, 2, [[-10.6, -9.4], [-4.6, -3.4]]);      // Gym west wall (doors -> Hallway, Arsenal)
-      wallX(-14, 10, 18, [[13.4, 14.6]]);                    // Gym | Blue stairs
-      wallX(4, -10, 0); wallZ(-10, -8, 4);                   // Church south / west walls
-      wallX(2, 10, 18);                                      // Gym south wall
-      wallX(6, 0, 10); wallZ(0, 0, 6); wallZ(10, 0, 6);      // Entrance room
-      // Garage: two cars, workbench, tool chest
-      addProp(-13, -13.5, 2.0, 4.6, 1.5, 'furniture'); addProp(-8.5, -17.5, 2.0, 4.6, 1.5, 'furniture');
-      addProp(-16.5, -20, 2.4, 0.8, 1.0); addProp(-6, -11, 1.2, 0.8, 1.0); addProp(-16, -9.5, 1.6, 1.2, 1.2);
-      addProp(-2, -19, 3.4, 5.0, 1.6, 'furniture');          // Red stairs block
-      for (let i = 0; i < 4; i++) { addProp(-7.3, -5.5 + i * 2.2, 3.6, 0.5, 0.95, 'furniture'); addProp(-2.7, -5.5 + i * 2.2, 3.6, 0.5, 0.95, 'furniture'); } // pews
-      addProp(-5, 3.0, 4.0, 1.2, 0.9, 'furniture'); addProp(-9.2, -6.8, 1.0, 1.0, 1.2);   // altar, crate
-      addProp(9.3, -5.5, 0.8, 2.6, 2.0, 'furniture'); addProp(9.3, -1.5, 0.8, 2.0, 2.0, 'furniture'); // gun racks
-      addProp(3, -4, 1.6, 1.6, 1.2); addProp(6.5, -2, 1.2, 1.2, 0.9); addProp(2, -1, 2.0, 0.9, 0.9, 'furniture');
-      addProp(7.5, -11.5, 2.4, 0.6, 2.0, 'furniture'); addProp(1.5, -11.3, 1.2, 1.0, 1.2);  // hallway lockers
-      addProp(13, -9, 0.7, 2.0, 0.6, 'furniture'); addProp(16, -9, 0.7, 2.0, 0.6, 'furniture'); addProp(17.2, -4, 0.8, 3.0, 1.6, 'furniture'); // gym
-      addProp(12.5, -3, 0.6, 0.6, 2.4, 'pillar'); addProp(14.5, 0, 2.4, 1.6, 0.5, 'furniture'); addProp(11.5, -12.5, 1.2, 1.2, 1.2);
-      addProp(16, -19, 3.4, 5.0, 1.6, 'furniture');          // Blue stairs block
-      addProp(2, 3.5, 1.4, 1.4, 1.2); addProp(8.3, 2.5, 1.2, 1.2, 0.9);  // entrance crates
+      lowX(1.0, -2.5, 2.5);                                       // reception counter
+      box(-7, 3, 2.0, 0.9, CG, 'furniture', 3); box(7, 3, 2.0, 0.9, CG, 'furniture', 3);
+      // left: storage (z -16..-8) + print room (z -8..2)
+      wallZ(-11, -16, 2, [[-9.6, -8.4], [-2.6, -1.4]]); wallX(-8, -16, -11);
+      box(-14.5, -12, 1.0, 3.0, TALL, 'furniture', 1); box(-13, -15, 1.2, 1.2, HG, 'crate', 2); box(-12.5, -3, 1.6, 1.0, HG, 'furniture', 2); box(-14.8, 0.5, 1.2, 1.2, CG, 'crate', 3);
+      // right: server room (z -16..-8) + copy room (z -8..2)
+      wallZ(11, -16, 2, [[-13.6, -12.4], [-5.6, -4.4]]); wallX(-8, 11, 16);
+      box(14.5, -12, 1.0, 3.0, TALL, 'furniture', 1); box(13, -3.5, 1.6, 1.0, HG, 'furniture', 2); box(13.5, 0.5, 1.2, 1.2, CG, 'crate', 3);
+      // meeting rooms along the far wall
+      wallX(-16, -16, 16, [[-10.6, -9.4], [-0.6, 0.6], [9.4, 10.6]]);
+      wallZ(-5.5, -22, -16); wallZ(5.5, -22, -16);
+      box(-10.5, -19.5, 3.0, 1.2, CG, 'furniture', 2); box(0, -19.5, 3.0, 1.2, CG, 'furniture', 2); box(10.5, -19.5, 3.0, 1.2, CG, 'furniture', 2);
+      box(-14.5, -18, 0.8, 0.8, HG, 'furniture', 3); box(14.5, -21, 1.6, 0.8, HG, 'furniture', 3);
+      // open plan: four cubicle crosses
+      cubicle(-6, -4); cubicle(5, -4); cubicle(-6, -11.5); cubicle(5, -11.5);
+      pillars([[-0.5, -8], [-0.5, -14]]);
+      box(-1.5, -1, 1.2, 1.2, CG, 'crate', 3);
     },
   },
-  // ---- Oregon 1F: traced from the r6maps.com floor plan (walls exact, furniture auto-detected, heights estimated) ----
-  // ---- Oregon: real geometry exported from the game files, voxelized to boxes (maps/obj2map.py) ----
-  oregonb:  { name: 'オレゴン 地下', data: 'maps/oregon-b.json', zones: 'dist' },
-  oregon1f: { name: 'オレゴン 1F', data: 'maps/oregon-1f.json', zones: 'dist' },
-  oregon2f: { name: 'オレゴン 2F', data: 'maps/oregon-2f.json', zones: 'dist' },
-  // ---- Oregon basement (schematic): Laundry / Supply / Blue Bunker / Freezer / Electric / Basement Corridor / Tower stairs ----
-  oregon: {
-    name: 'オレゴン 地下', room: { xmin: -16, xmax: 16, zmin: -20, zmax: 6, h: 3.2 },
-    spawn: { x: 14.8, z: 4.6, yaw: -0.45 },
-    zones: { near: [R(0, 16, -8, 6)], mid: [R(-8, 8, -14, 0)], far: [R(-16, -4, -20, -2), R(-6, 10, -20, -12)] },
+  // ---- BUNKER: entrance hall → three rows of rooms connected by offset doorways → long rear gallery; sandbag half walls everywhere ----
+  bunker: {
+    name: 'バンカー', room: { xmin: -20, xmax: 20, zmin: -26, zmax: 6, h: 2.8 },
+    spawn: { x: -16, z: 3.5, yaw: 0.5 }, zones: 'dist',
     build() {
-      wallZ(0, -8, 6, [[-1.6, -0.4], [3.4, 4.6]]);                        // Supply | Laundry
-      wallX(-8, -16, 16, [[-5.6, -4.4], [3.4, 4.6], [10.4, 11.6]]);       // corridor south wall
-      wallX(-12, -16, 16, [[-13.6, -12.4], [-3.6, -2.4], [6.4, 7.6]]);    // corridor north wall
-      wallZ(-8, -8, 6, [[-4.6, -3.4]]);                                   // Supply | Blue bunker
-      wallZ(8, -8, 6, [[0.4, 1.6]]);                                      // Laundry | Tower stairs
-      wallZ(-6, -20, -12); wallZ(4, -20, -12, [[-17.6, -16.4]]);          // Freezer walls
-      wallX(-16, -6, 4, [[-1.6, -0.4]]);                                  // Freezer entry
-      addProp(-12.5, 2, 3.0, 0.8, 2.0, 'furniture'); addProp(-10, -4, 1.6, 1.6, 1.2); addProp(-14, -5.5, 1.4, 1.4, 1.0);   // blue bunker
-      addProp(-4, 3, 4.0, 0.8, 2.0, 'furniture'); addProp(-2, -3, 1.6, 1.6, 1.2); addProp(-6, -5, 1.2, 1.2, 0.9); addProp(-5.5, 0.5, 1.0, 1.0, 1.0, 'pillar'); // supply
-      addProp(1.2, 4.6, 0.8, 2.4, 1.0, 'furniture'); addProp(4, 2, 2.4, 1.0, 0.9, 'furniture'); addProp(6, -4, 1.4, 1.4, 1.2); addProp(2.5, -5.5, 1.2, 1.2, 0.9); // laundry
-      addProp(12.5, 1, 3.0, 4.0, 1.6, 'furniture'); addProp(14, -5, 1.2, 1.2, 1.2);          // tower stairs
-      addProp(-10, -10, 1.2, 1.0, 1.2); addProp(9, -10.3, 2.0, 0.6, 2.0, 'furniture');      // corridor
-      addProp(-1, -15, 1.6, 1.6, 1.2); addProp(2.5, -18, 2.4, 0.8, 1.6, 'furniture'); addProp(-11, -16, 1.6, 1.0, 1.4, 'furniture'); addProp(8, -16, 1.6, 1.6, 1.2); addProp(13, -17, 1.2, 1.2, 1.0); // freezer / electric
+      // front row: entrance hall (x -20..-10) | armory (x -10..12) | stairwell (x 12..20)
+      wallZ(-10, -6, 6, [[-1.6, -0.4]]); wallZ(12, -6, 6, [[2.4, 3.6]]);
+      box(-14, -2.5, 1.6, 1.6, HG, 'crate', 2);                  // sandbags in the entrance hall (player cover)
+      lowX(-1, -8, -4); lowZ(6, -4, 0); box(2, 3, 2.0, 1.2, CG, 'crate', 2); box(-6, 3.5, 1.2, 1.2, HG, 'crate', 3); box(16, 2, 3.0, 1.6, CG, 'furniture', 2);
+      // row 1 (z -14..-6)
+      wallX(-6, -20, 20, [[-13.6, -12.4], [-1.6, -0.4], [15.4, 16.6]]);
+      wallZ(-8, -14, -6, [[-10.6, -9.4]]); wallZ(4, -14, -6, [[-12.6, -11.4]]); wallZ(12, -14, -6, [[-8.6, -7.4]]);
+      lowZ(-14, -12, -8); lowX(-10, -6, -2); lowX(-11, 6, 10);
+      box(16, -10, 1.6, 1.6, HG, 'crate', 2); box(0, -12, 1.6, 1.6, CG, 'crate', 3); box(-17, -12, 1.2, 1.2, CG, 'crate', 3); box(8, -8, 1.2, 1.2, CG, 'crate', 3);
+      // row 2 (z -20..-14)
+      wallX(-14, -20, 20, [[-7.6, -6.4], [5.4, 6.6], [17.4, 18.6]]);
+      wallZ(-2, -20, -14, [[-17.6, -16.4]]); wallZ(10, -20, -14);
+      lowX(-17, -16, -11); lowZ(1, -19, -15);
+      box(-5, -17, 1.6, 1.6, HG, 'crate', 2); box(14, -17, 2.4, 1.2, HG, 'crate', 2); box(18, -17, 1.2, 1.2, CG, 'crate', 3); box(7, -18, 1.2, 1.2, CG, 'crate', 3);
+      // row 3: rear gallery (z -26..-20)
+      wallX(-20, -20, 20, [[-16.6, -15.4], [-5.6, -4.4], [3.4, 4.6], [12.4, 13.6]]);
+      lowZ(-10, -25, -21); lowZ(0, -25, -21); lowZ(9, -25, -21);
+      box(-6, -23, 1.6, 1.6, CG, 'crate', 3); box(16, -23, 1.6, 1.6, HG, 'crate', 2); box(4, -24.5, 1.2, 1.2, CG, 'crate', 3); box(-14, -24, 2.4, 1.0, HG, 'crate', 2);
     },
   },
-  // ---- Bank basement (schematic): Lockers / CCTV / Server / Gold Vault / Main stairs / Garage ramp ----
-  bank: {
-    name: 'バンク 地下', room: { xmin: -16, xmax: 16, zmin: -20, zmax: 6, h: 3.2 },
-    spawn: { x: -11, z: 4, yaw: -0.4 },
-    zones: { near: [R(-16, -2, -8, 6)], mid: [R(-6, 10, -12, 2)], far: [R(2, 16, -20, -6), R(-16, 0, -20, -10)] },
+  // ---- ATRIUM: entrance desk → pillared hall with kiosks and planters → café; shop fronts on both sides ----
+  atrium: {
+    name: 'アトリウム', room: { xmin: -17, xmax: 17, zmin: -24, zmax: 8, h: 4.2 },
+    spawn: { x: 0, z: 6.5, yaw: 0 }, zones: 'dist',
     build() {
-      wallX(-8, -16, 16, [[-13.6, -12.4], [-3.6, -2.4], [6.4, 7.6]]);     // main corridor south wall
-      wallX(-12, -16, 16, [[-9.6, -8.4], [1.4, 2.6], [11.4, 12.6]]);      // main corridor north wall
-      wallZ(-2, -8, 6, [[1.4, 2.6]]);                                     // Garage ramp | Lockers
-      wallZ(10, -8, 6, [[-5.6, -4.4]]);                                   // Lockers | CCTV
-      wallZ(2, -20, -12, [[-17.6, -16.4]]);                               // Server | Vault
-      wallZ(-8, -20, -12);                                                // Main stairs | Server
-      addProp(-9, -4, 3.0, 5.0, 1.4, 'furniture'); addProp(-14, -5, 0.8, 0.8, 3.2, 'pillar'); addProp(-4, 3, 1.4, 1.4, 1.2);   // garage ramp
-      addProp(0, -4, 0.6, 3.0, 2.0, 'furniture'); addProp(4, -4, 0.6, 3.0, 2.0, 'furniture'); addProp(8, -1, 0.6, 3.0, 2.0, 'furniture'); addProp(2, 2.5, 2.0, 0.5, 0.5, 'furniture'); addProp(6, -6.5, 1.2, 1.2, 1.0); // lockers
-      addProp(13, 0, 2.0, 1.0, 0.9, 'furniture'); addProp(15.3, -4, 0.8, 2.4, 2.0, 'furniture'); addProp(12, -5.5, 1.2, 1.2, 1.2);   // CCTV
-      addProp(-6, -10, 0.8, 0.8, 3.2, 'pillar'); addProp(6, -10, 0.8, 0.8, 3.2, 'pillar'); addProp(0, -10.5, 1.2, 1.0, 1.2);     // corridor
-      addProp(-3.5, -15, 0.8, 3.0, 2.0, 'furniture'); addProp(-0.5, -15, 0.8, 3.0, 2.0, 'furniture'); addProp(-5.5, -18.5, 1.6, 1.0, 1.2); // server racks
-      addProp(9, -14, 1.6, 1.6, 1.2); addProp(13, -16.5, 1.8, 1.2, 1.0, 'furniture'); addProp(5, -17.5, 1.4, 1.4, 1.0); addProp(14.5, -13, 0.8, 0.8, 3.2, 'pillar'); // vault
-      addProp(-12, -17, 3.4, 4.0, 1.6, 'furniture'); addProp(-14.5, -13, 1.2, 1.2, 1.0);   // main stairs
+      lowX(2.5, -2.5, 2.5);                                       // info desk
+      box(-7, 5, 2.4, 1.2, CG, 'furniture', 2); box(7, 5, 2.4, 1.2, CG, 'furniture', 2);
+      // shop fronts (left / right), three shops each
+      for (const s of [-1, 1]) {
+        wallZ(10 * s, -24, 2, [[-21.6, -20.4], [-14.6, -13.4], [-6.6, -5.4], [0.4, 1.6]]);
+        wallX(-10, 10 * s, 17 * s); wallX(-18, 10 * s, 17 * s);
+        box(14 * s, -3, 3.0, 1.0, HG, 'furniture', 2); box(16.4 * s, -7, 0.8, 4.0, TALL, 'furniture', 1); box(13 * s, 0.5, 1.2, 1.2, CG, 'crate', 3);
+        box(13 * s, -13.5, 1.6, 1.6, CG, 'crate', 3); box(15.5 * s, -16.5, 2.4, 0.8, HG, 'furniture', 2);
+        box(13.5 * s, -21, 3.0, 1.0, HG, 'furniture', 2); box(16 * s, -23, 1.2, 1.2, CG, 'crate', 3);
+      }
+      // central hall
+      pillars([[-6, -4], [6, -4], [-6, -12], [6, -12], [-6, -20], [6, -20]], 0.8);
+      box(0, -6, 2.4, 2.4, HG, 'furniture', 1);                   // kiosk
+      box(-3, -14, 2.0, 1.2, HG, 'furniture', 2); box(3.5, -17, 2.0, 1.2, HG, 'furniture', 2);
+      box(-3.5, -9.5, 1.6, 1.6, CG, 'crate', 3); box(3.5, -10, 1.6, 1.6, CG, 'crate', 3);
+      // café at the far end
+      lowX(-19, -8, -3); lowX(-19, 3, 8);
+      box(-5, -22, 1.2, 1.2, CG, 'furniture', 3); box(5, -22, 1.2, 1.2, CG, 'furniture', 3); box(0, -22.5, 2.4, 1.0, HG, 'furniture', 2);
     },
   },
 };
-const MAP_DATA = {};
-async function loadMapData(only) {
-  for (const [k, m] of Object.entries(MAPS)) if (m.data && !MAP_DATA[k] && (!only || k === only)) { try { MAP_DATA[k] = await (await fetch(m.data)).json(); } catch (e) { console.warn('map load failed', k, e); } }
-}
 function buildMap(key) {
   MAP = MAPS[key] || MAPS.hall; PROPS.length = 0; DOORS.length = 0;
-  if (MAP.data) {
-    const d = MAP_DATA[key]; if (!d) { MAP = MAPS.hall; }
-    else {
-      ROOM = { xmin: d.bounds[0], xmax: d.bounds[1], zmin: d.bounds[2], zmax: d.bounds[3], h: 3.2 };
-      for (const [x, z, w, dd, h] of d.walls) addProp(x, z, w, dd, h, 'wall');
-      for (const [x, z, w, dd, h] of d.furn) { if (settings.objects === 'none') continue; if (settings.objects === 'large' && !((w * dd >= 1.2 && h >= 0.7) || h >= 1.3)) continue; addProp(x, z, w, dd, h, 'furniture'); }
-      buildGrid(); detectDoors();
-      // spawn: nearest free spot to the requested point (spiral search)
-      let sx = d.spawn[0], sz = d.spawn[1];
-      if (!posFree(sx, sz, MOVE.radius + 0.05)) { outer: for (let r = 0.3; r < 6; r += 0.3) for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) { const tx = d.spawn[0] + Math.cos(a) * r, tz = d.spawn[1] + Math.sin(a) * r; if (posFree(tx, tz, MOVE.radius + 0.05)) { sx = tx; sz = tz; break outer; } } }
-      MAP.spawn = { x: sx, z: sz, yaw: d.spawnYaw || 0 };
-      rebuildStatic(); return;
-    }
-  }
+  OBJ_TIER = settings.objects === 'none' ? 1 : settings.objects === 'all' ? 3 : 2;
   ROOM = { ...MAP.room };
   MAP.build(); buildGrid(); rebuildStatic();
-}
-// doorways = 0.8–1.7 m gaps between collinear wall pieces
-function detectDoors() {
-  const walls = PROPS.filter(p => p.kind === 'wall');
-  // x-running walls: sort by z then x; consecutive pieces on the same line with a 0.8–1.7 m gap = doorway
-  const hx = walls.filter(w => w.d < 0.9 && w.w > w.d).sort((a, b) => a.z - b.z || a.xmin - b.xmin);
-  const hz = walls.filter(w => w.w < 0.9 && w.d > w.w).sort((a, b) => a.x - b.x || a.zmin - b.zmin);
-  const scan = (arr, key, lo, hi, axis) => {
-    for (let k = 0; k < arr.length; k++) {
-      const a = arr[k]; let next = null;
-      for (let m = k + 1; m < arr.length && Math.abs(arr[m][key] - a[key]) < 0.45; m++) { const b = arr[m]; if (b[lo] > a[hi] - 0.01 && (!next || b[lo] < next[lo])) next = b; }
-      if (!next) continue;
-      const gap = next[lo] - a[hi];
-      if (gap >= 0.8 && gap <= 1.7) DOORS.push(axis === 'x' ? { x: (a[hi] + next[lo]) / 2, z: a.z, axis } : { x: a.x, z: (a[hi] + next[lo]) / 2, axis });
-    }
-  };
-  scan(hx, 'z', 'xmin', 'xmax', 'x'); scan(hz, 'x', 'zmin', 'zmax', 'z');
 }
 function inZone(x, z, zone) {
   if (MAP.zones === 'dist') { const d = Math.hypot(x - MAP.spawn.x, z - MAP.spawn.z); return zone === 'near' ? d < 10 : zone === 'mid' ? d >= 8 && d < 18 : d >= 16; }
@@ -580,7 +576,7 @@ const game = {
 const COLORS = {
   body: [0.82, 0.84, 0.86], bodyHit: [1.0, 0.72, 0.25], head: [0.95, 0.35, 0.25], dead: [0.35, 0.15, 0.12],
   active: [1.0, 0.62, 0.1], inactive: [0.42, 0.48, 0.56], wall: [0.42, 0.44, 0.48],
-  crate: [0.55, 0.42, 0.25], propwall: [0.5, 0.52, 0.56], furniture: [0.36, 0.40, 0.46], pillar: [0.46, 0.48, 0.52],
+  crate: [0.55, 0.42, 0.25], cover: [0.60, 0.56, 0.42], propwall: [0.5, 0.52, 0.56], furniture: [0.36, 0.40, 0.46], pillar: [0.46, 0.48, 0.52],
   gun: [0.16, 0.17, 0.19], gun2: [0.24, 0.25, 0.28], flash: [1.0, 0.85, 0.5], spark: [1.0, 0.7, 0.3],
 };
 
@@ -759,7 +755,9 @@ function spawnPattern(mapKey, k, n, zones) {
   for (let i = 0; i < n; i++) {
     let zone = zones[i % zones.length]; let spots = coverSpots(zone);
     if (!spots.length) for (const z of ['near', 'mid', 'far']) { spots = coverSpots(z); if (spots.length) { zone = z; break; } }
-    const spot = spreadPick(spots, placed, rng);
+    let spot = spreadPick(spots, placed, rng);
+    const minD = s => Math.min(99, ...placed.map(o => Math.hypot(s.hide[0] - o[0], s.hide[1] - o[1])));
+    if (!spot || minD(spot) < 2.0) { const all = [...coverSpots('near'), ...coverSpots('mid'), ...coverSpots('far')]; const alt = spreadPick(all, placed, rng); if (alt && (!spot || minD(alt) > minD(spot))) spot = alt; }   // zone full: borrow a spot elsewhere
     if (spot) placed.push(spot.hide);
     out.push({ zone, spot, delay: 0.2 + rng() * 1.6 });
   }
@@ -1116,7 +1114,7 @@ function frame(now) {
   gl.uniformMatrix4fv(U.uProj, false, perspective(game.aimFov, aspect, 0.05, 250));
   gl.uniformMatrix4fv(U.uView, false, view.m); gl.uniform3fv(U.uCam, eye); gl.uniform1f(U.uFog, 1);
   draw(meshRoom, modelTRS((ROOM.xmin + ROOM.xmax) / 2, ROOM.h / 2, (ROOM.zmin + ROOM.zmax) / 2, ROOM.xmax - ROOM.xmin, ROOM.h, ROOM.zmax - ROOM.zmin), COLORS.wall, 2, 0);
-  if (game.combat || !game.running) for (const s of STATIC) draw(s.mesh, IDENT, s.kind === 'crate' ? COLORS.crate : s.kind === 'wall' ? COLORS.propwall : s.kind === 'furniture' ? COLORS.furniture : COLORS.pillar, 1, 0);
+  if (game.combat || !game.running) for (const s of STATIC) draw(s.mesh, IDENT, s.kind === 'crate' ? COLORS.crate : s.kind === 'wall' ? COLORS.propwall : s.kind === 'furniture' ? COLORS.furniture : s.kind === 'cover' ? COLORS.cover : COLORS.pillar, 1, 0);
   for (const T of game.targets) {
     if (T.kind === 'op') {
       const g = opGeom(T.crouch, T.lean); const col = T.hit ? COLORS.bodyHit : (T.flash ? [1, 0.9, 0.5] : COLORS.body);
@@ -1151,7 +1149,7 @@ function frame(now) {
 
 // ---------------------------------------------------------------- boot
 loadSettings(); settings.scope = (SIGHTS[settings.sight] || SIGHTS['2.5']).zoom; selectedMode = MODES.some(m => m.id === settings.mode) ? settings.mode : 'cqb';
-buildMap('hall'); loadMapData('oregon1f'); buildModeList(); updateSensInfo(); showBest();
+buildMap('hall'); buildModeList(); updateSensInfo(); showBest();
 for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'map', 'recoil', 'botsize', 'objects', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
 for (const id of ['difficulty', 'duration', 'difficulty-lab', 'duration-lab', 'objects']) $(id).addEventListener('change', () => { readSettings(); showBest(); });
 // MAP COMBAT / AIM LAB switch
@@ -1165,7 +1163,7 @@ function setMenuMode(mm) {
 }
 document.querySelectorAll('.ms').forEach(b => b.addEventListener('click', () => setMenuMode(b.dataset.mm)));
 setMenuMode(settings.menuMode === 'lab' ? 'lab' : (MODES.find(x => x.id === selectedMode) || {}).group === 'track' ? 'lab' : 'combat');
-$('start').addEventListener('click', async () => { if (MAPS[$('map').value]?.data && !MAP_DATA[$('map').value]) { $('start').disabled = true; await loadMapData($('map').value); $('start').disabled = false; } startRun(); await requestLock(); });
+$('start').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('again').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('start-lab').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('close-results').addEventListener('click', () => { $('results').classList.add('hidden'); });
