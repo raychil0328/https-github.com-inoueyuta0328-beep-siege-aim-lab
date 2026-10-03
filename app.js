@@ -960,7 +960,7 @@ function startRun() {
   buildMap(game.combat ? settings.map : 'hall'); game.targets = []; game.bots = [];
   game.px = MAP.spawn.x; game.pz = MAP.spawn.z; game.yaw = MAP.spawn.yaw;
   if (game.combat) spawnBots(); else spawnTargets();
-  game.running = true;
+  game.running = true; track(`run/${game.combat ? 'combat/' + settings.map : game.mode.id}`);
   $('menu').classList.add('hidden'); $('results').classList.add('hidden'); $('hud').classList.remove('hidden');
   $('h-mode').textContent = game.combat ? `${MAP.name} · ${t('hud.pattern')} #${game.pattern + 1}/${PATTERN_COUNT}` : game.mode.name;
   const s = sensState();

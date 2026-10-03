@@ -71,6 +71,13 @@ cm/360                 = 2.54 × 360 / (yaw × DPI)
 python3 -m http.server 8080
 ```
 
+## アクセス解析 / 支援リンク（任意）
+
+`config.js` の値を入れると有効になります（空のままなら何も読み込まれません）:
+
+- `goatcounter`: [GoatCounter](https://www.goatcounter.com) のサイトコード。訪問者数・ユニーク数に加えて、プレイ開始を `run/combat/<map>` / `run/<drill>` のイベントとして記録します。Cookie を使わないため同意バナー不要。
+- `donate`: Ko-fi / Buy Me a Coffee / GitHub Sponsors / OFUSE などの URL。フッターとリザルト画面に支援ボタンが出ます。
+
 ## デプロイ
 
 `main` ブランチ が更新されると `.github/workflows/deploy.yml` が GitHub Pages へ自動デプロイします。
