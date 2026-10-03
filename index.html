@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SIEGE AIM LAB — R6S Aim Trainer</title>
-<meta name="description" content="R6S(レインボーシックス シージ)の感度・ADS倍率・移動・リコイルを再現したブラウザ動作のエイムトレーナー">
+<title>SIEGE AIM TRAINER — R6S Aim Trainer</title>
+<meta name="description" content="R6S(レインボーシックス シージ)の感度・ADS倍率・移動・リコイルを再現したブラウザ動作のエイムトレーナー / Browser aim trainer with exact R6S sensitivity, movement and recoil">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -30,7 +30,7 @@
   <div id="hud-br" class="combat-only"><span class="lbl">AR · 800RPM</span><span id="h-ammo">30 / ∞</span></div>
   <div id="hud-bottom">
     <span id="h-mode"></span> · <span id="h-sens"></span> · <span id="h-zoom"></span>
-    <span class="dim"> · WASD 移動 · Shift ダッシュ · C しゃがみ · Q/E リーン · R リロード · BackSpace リスタート · ESC メニュー</span>
+    <span class="dim" data-i18n="hud.keys"></span>
   </div>
   <div id="hit-flash"></div>
 </div>
@@ -38,130 +38,129 @@
 <!-- MENU -->
 <div id="menu">
   <div class="bg"></div>
+  <div class="lang"><button data-lang="ja">日本語</button><button data-lang="en">English</button></div>
   <header>
-    <div class="logo"><span class="brand">SIEGE</span><span class="sep"></span>AIM LAB</div>
-    <div class="sub">R6S 感度・移動・リコイル再現 / トラッキング &amp; 動体視力 / 近・中・遠距離 BOT 戦 — ブラウザで 360Hz+</div>
+    <div class="logo"><span class="brand">SIEGE</span><span class="sep"></span>AIM TRAINER</div>
+    <div class="sub" data-i18n="hdr.sub"></div>
     <div class="chips"><span>FULLSCREEN</span><span>RAW INPUT 8000Hz</span><span>UNCAPPED FPS</span><span>R6S SENS EXACT</span></div>
   </header>
 
   <nav class="modeswitch">
     <button id="ms-combat" class="ms on" data-mm="combat">
       <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M8 54V26l24-16 24 16v28H40V38H24v16Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="32" cy="28" r="6" fill="none" stroke="currentColor" stroke-width="3"/><path d="M32 18v4M32 34v4M22 28h4M38 28h4" stroke="currentColor" stroke-width="3"/></svg>
-      <span class="ms-t">MAP COMBAT</span><span class="ms-d">本格トレーニング — 実マップ · 移動 · リコイル · カバーを使う BOT</span>
+      <span class="ms-t" data-i18n="ms.combat"></span><span class="ms-d" data-i18n="ms.combat.d"></span>
     </button>
     <button id="ms-lab" class="ms" data-mm="lab">
       <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="22" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="32" cy="32" r="12" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="32" cy="32" r="3" fill="currentColor"/><path d="M32 4v8M32 52v8M4 32h8M52 32h8" stroke="currentColor" stroke-width="3"/></svg>
-      <span class="ms-t">AIM LAB</span><span class="ms-d">動体視力・シンプルエイム — リコイルなし · 時間追従で採点</span>
+      <span class="ms-t" data-i18n="ms.drills"></span><span class="ms-d" data-i18n="ms.drills.d"></span>
     </button>
   </nav>
 
   <main>
     <section id="pane-combat" class="panel modes-panel">
-      <h2><span class="num">01</span>マップ戦シナリオ<small>移動 · 射撃 · リコイル · カバー BOT</small></h2>
-      <div id="modes-combat" class="modes"></div>
-      <h3>マップ戦の設定</h3>
+      <h2><span class="num">01</span><span data-i18n="combat.h2"></span><small data-i18n="combat.h2s"></small></h2>
       <div class="grid g3">
-        <label>マップ <select id="map">
-          <option value="ware">ウェアハウス（倉庫）</option>
-          <option value="office">オフィス</option>
-          <option value="bunker">バンカー</option>
-          <option value="atrium">アトリウム</option>
+        <label><span data-i18n="lbl.map"></span> <select id="map">
+          <option value="ware" data-i18n="map.ware"></option>
+          <option value="office" data-i18n="map.office"></option>
+          <option value="bunker" data-i18n="map.bunker"></option>
+          <option value="atrium" data-i18n="map.atrium"></option>
         </select></label>
-        <label>オブジェクト密度 <select id="objects">
-          <option value="large" selected>標準（主要カバーのみ）</option>
-          <option value="all">すべて</option>
-          <option value="none">最小（壁 + 頭出しカバーのみ）</option>
+        <label><span data-i18n="lbl.objects"></span> <select id="objects">
+          <option value="large" selected data-i18n="obj.large"></option>
+          <option value="all" data-i18n="obj.all"></option>
+          <option value="none" data-i18n="obj.none"></option>
         </select></label>
-        <label>BOT 数 <select id="bots">
-          <option value="auto" selected>自動（モード既定）</option>
+        <label><span data-i18n="lbl.bots"></span> <select id="bots">
+          <option value="auto" selected data-i18n="bots.auto"></option>
           <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
           <option value="5">5</option><option value="6">6</option><option value="8">8</option><option value="10">10</option>
         </select></label>
-        <label>BOT サイズ <select id="botsize">
-          <option value="s">小（幅 ×0.75）</option>
-          <option value="m" selected>中（標準）</option>
-          <option value="l">大（幅 ×1.3）</option>
+        <label><span data-i18n="lbl.botsize"></span> <select id="botsize">
+          <option value="s" data-i18n="bs.s"></option>
+          <option value="m" selected data-i18n="bs.m"></option>
+          <option value="l" data-i18n="bs.l"></option>
         </select></label>
-        <label>難易度 <select id="difficulty">
+        <label><span data-i18n="lbl.diff"></span> <select id="difficulty">
           <option value="0.7">Easy</option>
           <option value="1" selected>Normal</option>
           <option value="1.35">Hard</option>
           <option value="1.8">Insane</option>
         </select></label>
-        <label>時間 <select id="duration">
+        <label><span data-i18n="lbl.dur"></span> <select id="duration">
           <option value="30">30s</option>
           <option value="60" selected>60s</option>
           <option value="120">120s</option>
           <option value="300">300s</option>
         </select></label>
-        <label>リコイル強度 <select id="recoil">
-          <option value="0">なし</option>
-          <option value="0.5">弱 (×0.5)</option>
-          <option value="0.75">やや弱 (×0.75)</option>
-          <option value="1" selected>標準 (×1.0)</option>
-          <option value="1.25">やや強 (×1.25)</option>
-          <option value="1.5">強 (×1.5)</option>
-          <option value="2">非常に強 (×2.0)</option>
+        <label><span data-i18n="lbl.recoil"></span> <select id="recoil">
+          <option value="0" data-i18n="rc.0"></option>
+          <option value="0.5" data-i18n="rc.05"></option>
+          <option value="0.75" data-i18n="rc.075"></option>
+          <option value="1" selected data-i18n="rc.1"></option>
+          <option value="1.25" data-i18n="rc.125"></option>
+          <option value="1.5" data-i18n="rc.15"></option>
+          <option value="2" data-i18n="rc.2"></option>
         </select></label>
-        <label>弾薬 <select id="ammomode"><option value="mag">30 発 + リロード</option><option value="infinite">無限（リロードなし）</option></select></label>
+        <label><span data-i18n="lbl.ammo"></span> <select id="ammomode"><option value="mag" data-i18n="ammo.mag"></option><option value="infinite" data-i18n="ammo.inf"></option></select></label>
       </div>
       <div id="best" class="best"></div>
-      <button id="start" class="primary"><span class="ico">▶</span> DEPLOY<small>クリックでフルスクリーン ＆ マウスロック</small></button>
+      <button id="start" class="primary"><span class="ico">▶</span> DEPLOY<small data-i18n="start.sub"></small></button>
       <div class="keys">
-        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動</div>
-        <div><kbd>Shift</kbd> ダッシュ</div>
-        <div><kbd>C</kbd>/<kbd>Ctrl</kbd> しゃがみ</div>
-        <div><kbd>Q</kbd><kbd>E</kbd> リーン</div>
-        <div><kbd>右クリック</kbd> ADS</div>
-        <div><kbd>R</kbd> リロード</div>
-        <div><kbd>BackSpace</kbd> リスタート</div>
-        <div><kbd>ESC</kbd> メニュー</div>
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> <span data-i18n="k.move"></span></div>
+        <div><kbd>Shift</kbd> <span data-i18n="k.sprint"></span></div>
+        <div><kbd>C</kbd>/<kbd>Ctrl</kbd> <span data-i18n="k.crouch"></span></div>
+        <div><kbd>Q</kbd><kbd>E</kbd> <span data-i18n="k.lean"></span></div>
+        <div><kbd data-i18n="k.rmb"></kbd> <span data-i18n="k.ads"></span></div>
+        <div><kbd>R</kbd> <span data-i18n="k.reload"></span></div>
+        <div><kbd>BackSpace</kbd> <span data-i18n="k.restart"></span></div>
+        <div><kbd>ESC</kbd> <span data-i18n="k.menu"></span></div>
       </div>
     </section>
 
     <section id="pane-lab" class="panel modes-panel hidden">
-      <h2><span class="num">01</span>エイムラボ シナリオ<small>レーザー（リコイルなし）· ターゲット上にいた時間で採点</small></h2>
+      <h2><span class="num">01</span><span data-i18n="drills.h2"></span><small data-i18n="drills.h2s"></small></h2>
       <div id="modes-track" class="modes"></div>
-      <h3>エイムラボの設定</h3>
+      <h3 data-i18n="drills.settings"></h3>
       <div class="grid g3">
-        <label>難易度（速さ） <select id="difficulty-lab">
+        <label><span data-i18n="lbl.diff.lab"></span> <select id="difficulty-lab">
           <option value="0.7">Easy</option>
           <option value="1" selected>Normal</option>
           <option value="1.35">Hard</option>
           <option value="1.8">Insane</option>
         </select></label>
-        <label>時間 <select id="duration-lab">
+        <label><span data-i18n="lbl.dur"></span> <select id="duration-lab">
           <option value="30">30s</option>
           <option value="60" selected>60s</option>
           <option value="120">120s</option>
         </select></label>
       </div>
       <div id="best-lab" class="best"></div>
-      <button id="start-lab" class="primary"><span class="ico">▶</span> START<small>クリックでフルスクリーン ＆ マウスロック</small></button>
+      <button id="start-lab" class="primary"><span class="ico">▶</span> START<small data-i18n="start.sub"></small></button>
       <div class="keys">
-        <div><kbd>左クリック</kbd> 長押しで追従</div>
-        <div><kbd>右クリック</kbd> ADS</div>
-        <div><kbd>BackSpace</kbd> リスタート</div>
-        <div><kbd>ESC</kbd> メニュー</div>
+        <div><kbd data-i18n="k.lmb"></kbd> <span data-i18n="k.hold"></span></div>
+        <div><kbd data-i18n="k.rmb"></kbd> <span data-i18n="k.ads"></span></div>
+        <div><kbd>BackSpace</kbd> <span data-i18n="k.restart"></span></div>
+        <div><kbd>ESC</kbd> <span data-i18n="k.menu"></span></div>
       </div>
     </section>
 
     <section class="panel">
-      <h2><span class="num">02</span>共通設定（R6S）<small>ゲーム内と同じ値を入力 — 両モード共通</small></h2>
+      <h2><span class="num">02</span><span data-i18n="common.h2"></span><small data-i18n="common.h2s"></small></h2>
       <div class="tabs">
-        <button class="on" data-tab="tab-sens">感度</button>
-        <button data-tab="tab-ads">ADS 倍率別</button>
-        <button data-tab="tab-ctl">操作</button>
-        <button data-tab="tab-formula">計算式</button>
+        <button class="on" data-tab="tab-sens" data-i18n="tab.sens"></button>
+        <button data-tab="tab-ads" data-i18n="tab.ads"></button>
+        <button data-tab="tab-ctl" data-i18n="tab.ctl"></button>
+        <button data-tab="tab-formula" data-i18n="tab.formula"></button>
       </div>
       <div id="tab-sens" class="tabpane">
         <div class="grid">
-          <label>マウス DPI <input id="dpi" type="number" min="100" max="32000" step="50" value="800"></label>
-          <label>FOV（垂直, 60–90） <input id="fov" type="number" min="60" max="90" step="1" value="90"></label>
-          <label>水平感度 (1–100) <input id="sensH" type="number" min="1" max="100" step="1" value="10"></label>
-          <label>垂直感度 (1–100) <input id="sensV" type="number" min="1" max="100" step="1" value="10"></label>
-          <label title="GameSettings.ini の MouseSensitivityMultiplierUnit">MouseSensitivityMultiplierUnit <input id="msmu" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
-          <label title="GameSettings.ini の XFactorAiming">XFactorAiming <input id="xfactor" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
+          <label><span data-i18n="lbl.dpi"></span> <input id="dpi" type="number" min="100" max="32000" step="50" value="800"></label>
+          <label><span data-i18n="lbl.fov"></span> <input id="fov" type="number" min="60" max="90" step="1" value="90"></label>
+          <label><span data-i18n="lbl.sensH"></span> <input id="sensH" type="number" min="1" max="100" step="1" value="10"></label>
+          <label><span data-i18n="lbl.sensV"></span> <input id="sensV" type="number" min="1" max="100" step="1" value="10"></label>
+          <label title="GameSettings.ini: MouseSensitivityMultiplierUnit">MouseSensitivityMultiplierUnit <input id="msmu" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
+          <label title="GameSettings.ini: XFactorAiming">XFactorAiming <input id="xfactor" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
         </div>
       </div>
       <div id="tab-ads" class="tabpane hidden">
@@ -174,59 +173,49 @@
           <label>12.0x Glaz / Kali <input id="ads12" type="number" min="1" max="100" value="50"></label>
         </div>
         <div class="row">
-          <label>使用サイト <select id="sight">
-            <option value="holo">1.0x Holo A（EOTech 型）</option>
-            <option value="holob">1.0x Holo B（Y5S3 追加型）</option>
-            <option value="holoru">1.0x ロシアンホロ</option>
-            <option value="reddot">1.0x Red Dot A（チューブ型）</option>
-            <option value="reddotb">1.0x Red Dot B（Y5S3 追加型）</option>
-            <option value="reflex">1.0x Reflex A（ドット）</option>
-            <option value="reflexb">1.0x Reflex B（三角）</option>
-            <option value="1.5">1.5x</option>
-            <option value="2">2.0x</option>
-            <option value="2.5" selected>2.5x ACOG</option>
-            <option value="3">3.0x</option>
-            <option value="12">12.0x（CSRX 300）</option>
+          <label><span data-i18n="lbl.sight"></span> <select id="sight">
+            <option value="holo" data-i18n="sight.holo"></option>
+            <option value="holob" data-i18n="sight.holob"></option>
+            <option value="holoru" data-i18n="sight.holoru"></option>
+            <option value="reddot" data-i18n="sight.reddot"></option>
+            <option value="reddotb" data-i18n="sight.reddotb"></option>
+            <option value="reflex" data-i18n="sight.reflex"></option>
+            <option value="reflexb" data-i18n="sight.reflexb"></option>
+            <option value="1.5" data-i18n="sight.1.5"></option>
+            <option value="2" data-i18n="sight.2"></option>
+            <option value="2.5" selected data-i18n="sight.2.5"></option>
+            <option value="3" data-i18n="sight.3"></option>
+            <option value="12" data-i18n="sight.12"></option>
           </select></label>
-          <label>レティクル色 <select id="reticle">
-            <option value="#ff2b2b" selected>赤</option>
-            <option value="#2bff5a">緑</option>
-            <option value="#2b9bff">青</option>
-            <option value="#ffffff">白</option>
-            <option value="#ff4fd8">ピンク</option>
-            <option value="#ffe02b">黄</option>
-            <option value="#2bf0ff">シアン</option>
-            <option value="#ff8c2b">オレンジ</option>
+          <label><span data-i18n="lbl.reticle"></span> <select id="reticle">
+            <option value="#ff2b2b" selected data-i18n="col.red"></option>
+            <option value="#2bff5a" data-i18n="col.green"></option>
+            <option value="#2b9bff" data-i18n="col.blue"></option>
+            <option value="#ffffff" data-i18n="col.white"></option>
+            <option value="#ff4fd8" data-i18n="col.pink"></option>
+            <option value="#ffe02b" data-i18n="col.yellow"></option>
+            <option value="#2bf0ff" data-i18n="col.cyan"></option>
+            <option value="#ff8c2b" data-i18n="col.orange"></option>
           </select></label>
         </div>
       </div>
       <div id="tab-ctl" class="tabpane hidden">
         <div class="grid">
-          <label>ADS 操作 <select id="adsmode"><option value="hold">ホールド</option><option value="toggle">トグル</option></select></label>
-          <label>しゃがみ操作 <select id="crouchmode"><option value="toggle">トグル</option><option value="hold">ホールド</option></select></label>
-          <label>リーン操作 (Q/E) <select id="leanmode"><option value="hold">ホールド（長押し）</option><option value="toggle">トグル（切り替え）</option></select></label>
-          <label class="chk"><span>マウス反転</span><input id="invert" type="checkbox"></label>
+          <label><span data-i18n="lbl.adsmode"></span> <select id="adsmode"><option value="hold" data-i18n="hold"></option><option value="toggle" data-i18n="toggle"></option></select></label>
+          <label><span data-i18n="lbl.crouchmode"></span> <select id="crouchmode"><option value="toggle" data-i18n="toggle"></option><option value="hold" data-i18n="hold"></option></select></label>
+          <label><span data-i18n="lbl.leanmode"></span> <select id="leanmode"><option value="hold" data-i18n="lean.hold"></option><option value="toggle" data-i18n="lean.toggle"></option></select></label>
+          <label class="chk"><span data-i18n="lbl.invert"></span><input id="invert" type="checkbox"></label>
         </div>
-        <div class="note">
-          移動速度: 歩行 3.1 m/s · ダッシュ 5.3 m/s · しゃがみ 1.55 m/s · ADS 時 ×0.6（3スピード OP 相当）<br>
-          武器: 汎用 AR · 800 RPM · 30 発 · 胴 40 / 頭 100 ダメージ · リロード 2.4s · リコイルは視点が跳ね上がり自動復帰なし（シージ準拠）
-        </div>
+        <div class="note" data-i18n-html="note.move"></div>
       </div>
       <div id="tab-formula" class="tabpane hidden">
-<pre>出典: Ubisoft 公式 "FOV and Input Sensitivity"
-腰だめ  yaw[deg/count] = 水平感度 × MouseSensitivityMultiplierUnit × (180/π) / 200
-                        (既定 MSMU=0.02 → 感度1あたり 0.005729°/count)
-ADS     yaw = 腰だめyaw × min(max((ADS感度 × XFactorAiming) × 光学補正, 0), 1)
-        光学補正(感度): 1x(Holo/RedDot/Reflex/アイアン) 0.6 · ACOG 2.5x 0.35
-ADS FOV = FOV × 光学補正(FOV)   1x: 0.9（-10% = ホロでも少しズーム） · ACOG: 0.35
-        ※ 1.5x / 2.0x / 3.0x / 12x は公開値がないため 1x と 2.5x を通る曲線で補間
-cm/360  = 2.54 × 360 / (yaw × DPI)</pre>
+<pre data-i18n="formula"></pre>
       </div>
 
       <div class="stats">
-        <div class="stat"><span class="k">腰だめ cm/360</span><b id="si-hip">—</b><small id="si-hip2"></small></div>
-        <div class="stat"><span class="k">ADS cm/360</span><b id="si-ads">—</b><small id="si-ads2"></small></div>
-        <div class="stat"><span class="k">垂直 FOV → ADS</span><b id="si-fov">—</b><small>倍率で縮小</small></div>
+        <div class="stat"><span class="k" data-i18n="st.hip"></span><b id="si-hip">—</b><small id="si-hip2"></small></div>
+        <div class="stat"><span class="k" data-i18n="st.ads"></span><b id="si-ads">—</b><small id="si-ads2"></small></div>
+        <div class="stat"><span class="k" data-i18n="st.fov"></span><b id="si-fov">—</b><small data-i18n="st.fov2"></small></div>
       </div>
     </section>
   </main>
@@ -239,17 +228,18 @@ cm/360  = 2.54 × 360 / (yaw × DPI)</pre>
       <div id="results-body"></div>
       <div class="actions">
         <button id="again" class="primary"><span class="ico">↻</span> REDEPLOY</button>
-        <button id="close-results" class="secondary">メニューへ戻る</button>
+        <button id="close-results" class="secondary" data-i18n="res.back"></button>
       </div>
     </div>
   </div>
 
   <footer>
-    SIEGE AIM LAB はファンメイドの非公式トレーナーです。Rainbow Six Siege は Ubisoft の商標です。
+    <span data-i18n="footer"></span>
     · <a href="https://github.com/raychil0328/https-github.com-inoueyuta0328-beep-siege-aim-lab" target="_blank" rel="noopener">GitHub</a>
   </footer>
 </div>
 
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

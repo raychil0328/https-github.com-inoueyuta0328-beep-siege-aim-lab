@@ -146,3 +146,6 @@ footer a{color:var(--dim)}
 .grid.g3{grid-template-columns:repeat(3,1fr)}
 @media(max-width:900px){.modeswitch{grid-template-columns:1fr}.grid.g3{grid-template-columns:1fr 1fr}}
 .modes-panel h3{margin-top:18px}
+.lang{position:absolute;top:14px;right:18px;display:flex;gap:4px;z-index:3}
+.lang button{font-family:var(--head);font-size:12px;letter-spacing:.12em;padding:5px 10px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.35);color:#cfd5de;cursor:pointer;border-radius:2px}
+.lang button.on{border-color:var(--accent);color:var(--accent);background:rgba(245,166,35,.1)}

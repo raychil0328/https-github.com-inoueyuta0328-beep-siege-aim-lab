@@ -1,4 +1,4 @@
-/* SIEGE AIM LAB — R6S-style tracking / combat trainer
+/* SIEGE AIM TRAINER — R6S-style tracking / combat trainer
    - WebGL2 renderer, uncapped (syncs to display refresh: 360Hz+ monitors run 360fps+)
    - Raw mouse input: pointer lock w/ unadjustedMovement + pointerrawupdate
    - Sensitivity: exact R6S formulas (hipfire / per-zoom ADS / vertical FOV)
@@ -122,27 +122,19 @@ function updateSensInfo() {
 // ---------------------------------------------------------------- scenarios
 const MODES = [
   // --- combat (move + shoot + recoil) ---
-  { id: 'cqb', group: 'combat', name: 'Close Quarters', tag: '近距離 5–12m', bots: 2, zones: ['near'],
-    desc: '箱・壁の間を走り回りピークする BOT を近距離で撃つ。腰だめ/ホロ主体。' },
-  { id: 'mid', group: 'combat', name: 'Mid Range', tag: '中距離 15–28m', bots: 2, zones: ['mid'],
-    desc: 'カバーから頭出し・リーンする BOT。ADS でのリコイル制御を鍛える。' },
-  { id: 'long', group: 'combat', name: 'Long Range', tag: '遠距離 32–50m', bots: 2, zones: ['far'],
-    desc: 'ACOG 推奨。ホール奥の BOT を細かいトラッキングとタップ撃ちで倒す。' },
-  { id: 'mixed', group: 'combat', name: 'Mixed Range', tag: '全距離', bots: 3, zones: ['near', 'mid', 'far'],
-    desc: '全距離に BOT。自分も移動しつつ距離に応じて腰だめ/ADS を切り替える。' },
-  // --- tracking (laser, no recoil) ---
-  { id: 'track', group: 'track', name: 'Smooth Tracking', tag: 'TRACKING', desc: 'オペレーター型ターゲットが高速で左右ストレイフ。追従時間で採点。' },
-  { id: 'reactive', group: 'track', name: 'Reactive Strafe', tag: 'TRACKING · PEEK', desc: 'R6S のピーク/カウンターストレイフを模した急な方向転換・しゃがみ・リーン。' },
-  { id: 'air', group: 'track', name: 'Air Tracking', tag: 'TRACKING · 3D', desc: '上下左右＋前後に飛び回るターゲットを追い続ける。' },
-  { id: 'vision', group: 'track', name: 'Dynamic Vision', tag: '動体視力', desc: '5体が高速に動き回り、光る1体が切り替わる。光っている1体だけを追え。' },
-  { id: 'flicktrack', group: 'track', name: 'Flick + Track', tag: 'HYBRID', desc: 'ターゲットがワープ→即ストレイフ。フリックから追従への切り替え。' },
-  { id: 'microdot', group: 'track', name: 'Micro Dot Track', tag: 'PRECISION · ADS', desc: '小さなヘッド大のターゲットが細かく揺れる。ADS での微調整。' },
+  { id: 'combat', group: 'combat', get name() { return t('mode.combat'); }, get tag() { return t('mode.combat.tag'); }, bots: 4, zones: ['near', 'mid', 'far'], get desc() { return t('mode.combat.desc'); } },
+  { id: 'track', group: 'track', name: 'Smooth Tracking', tag: 'TRACKING', get desc() { return t('mode.track.desc'); } },
+  { id: 'reactive', group: 'track', name: 'Reactive Strafe', tag: 'TRACKING · PEEK', get desc() { return t('mode.reactive.desc'); } },
+  { id: 'air', group: 'track', name: 'Air Tracking', tag: 'TRACKING · 3D', get desc() { return t('mode.air.desc'); } },
+  { id: 'vision', group: 'track', name: 'Dynamic Vision', get tag() { return t('mode.vision.tag'); }, get desc() { return t('mode.vision.desc'); } },
+  { id: 'flicktrack', group: 'track', name: 'Flick + Track', tag: 'HYBRID', get desc() { return t('mode.flicktrack.desc'); } },
+  { id: 'microdot', group: 'track', name: 'Micro Dot Track', tag: 'PRECISION · ADS', get desc() { return t('mode.microdot.desc'); } },
 ];
 
 // ---------------------------------------------------------------- WebGL
 const canvas = $('gl');
 const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, desynchronized: true, powerPreference: 'high-performance' });
-if (!gl) { alert('WebGL2 が利用できません。Chrome / Edge / Firefox の最新版をご利用ください。'); }
+if (!gl) { alert(t('nogl')); }
 
 const VS = `#version 300 es
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm;
@@ -335,16 +327,16 @@ function piece(cx, cz, type, tier = 2) {
 function pieces(list) { for (const [x, z, t, tier] of list) piece(x, z, t, tier); }
 
 const MAPS = {
-  // internal: used by AIM LAB (tracking) modes only – no props are drawn there
+  // internal: used by DRILLS (tracking) modes only – no props are drawn there
   hall: {
-    name: 'トレーニングホール', room: { xmin: -12, xmax: 12, zmin: -52, zmax: 10, h: 5 },
+    get name() { return t('map.hall'); }, room: { xmin: -12, xmax: 12, zmin: -52, zmax: 10, h: 5 },
     spawn: { x: 0, z: 5.5, yaw: 0 },
     zones: { near: [R(-12, 12, -12, -2)], mid: [R(-12, 12, -28, -14)], far: [R(-12, 12, -50, -32)] },
     build() {},
   },
   // ---- WAREHOUSE: loading dock in front, then a 5 x 4 grid of storage rooms (6–7 m) with offset doorways ----
   ware: {
-    name: 'ウェアハウス', room: { xmin: -18, xmax: 18, zmin: -24, zmax: 8, h: 3.4 },
+    get name() { return t('map.ware'); }, room: { xmin: -18, xmax: 18, zmin: -24, zmax: 8, h: 3.4 },
     spawn: { x: 0, z: 6.5, yaw: 0 }, zones: 'dist',
     build() {
       cells({
@@ -368,7 +360,7 @@ const MAPS = {
   },
   // ---- OFFICE: lobby, then 5 x 4 small offices / meeting rooms; partitions, desks and cabinets as head-glitch cover ----
   office: {
-    name: 'オフィス', room: { xmin: -16, xmax: 16, zmin: -22, zmax: 6, h: 3.0 },
+    get name() { return t('map.office'); }, room: { xmin: -16, xmax: 16, zmin: -22, zmax: 6, h: 3.0 },
     spawn: { x: 0, z: 4.5, yaw: 0 }, zones: 'dist',
     build() {
       cells({
@@ -391,7 +383,7 @@ const MAPS = {
   },
   // ---- BUNKER: 7 x 4 grid of small concrete rooms with staggered doors, plus a rear gallery; sandbag half walls ----
   bunker: {
-    name: 'バンカー', room: { xmin: -20, xmax: 20, zmin: -26, zmax: 6, h: 2.8 },
+    get name() { return t('map.bunker'); }, room: { xmin: -20, xmax: 20, zmin: -26, zmax: 6, h: 2.8 },
     spawn: { x: -17, z: 3.5, yaw: 0.5 }, zones: 'dist',
     build() {
       cells({
@@ -411,7 +403,7 @@ const MAPS = {
   },
   // ---- ATRIUM: central hall split by pillars and kiosks, flanked by two columns of small shops with back rooms ----
   atrium: {
-    name: 'アトリウム', room: { xmin: -17, xmax: 17, zmin: -24, zmax: 8, h: 4.0 },
+    get name() { return t('map.atrium'); }, room: { xmin: -17, xmax: 17, zmin: -24, zmax: 8, h: 4.0 },
     spawn: { x: 0, z: 6.5, yaw: 0 }, zones: 'dist',
     build() {
       cells({
@@ -909,7 +901,7 @@ function updateWeapon(dt, eye, view) {
 // ---------------------------------------------------------------- run control
 let selectedMode = 'cqb';
 function buildModeList() {
-  for (const g of ['combat', 'track']) {
+  for (const g of ['track']) {
     const box = $('modes-' + g); box.innerHTML = '';
     for (const m of MODES.filter(x => x.group === g)) {
       const b = document.createElement('button'); b.className = 'mode' + (m.id === selectedMode ? ' sel' : ''); b.dataset.id = m.id;
@@ -923,11 +915,12 @@ function isLab() { return (MODES.find(x => x.id === selectedMode) || MODES[0]).g
 function curDiff() { return isLab() ? settings.difficultyLab : settings.difficulty; }
 function curDur() { return isLab() ? settings.durationLab : settings.duration; }
 function curDiffText() { return $(isLab() ? 'difficulty-lab' : 'difficulty').selectedOptions[0].text; }
-function bestKey() { return `sal-best-${selectedMode}-${curDiff()}-${curDur()}`; }
+function bestKey() { return `sal-best-${selectedMode}${isLab() ? '' : '-' + settings.map}-${curDiff()}-${curDur()}`; }
 function showBest() {
   let v = null; try { v = JSON.parse(localStorage.getItem(bestKey())); } catch (e) {}
   const m = MODES.find(x => x.id === selectedMode);
-  $(isLab() ? 'best-lab' : 'best').innerHTML = v ? `<b>BEST</b> ${m.name} · ${curDiffText()} · ${curDur()}s — スコア <b>${v.score}</b>${v.acc != null ? ` · ${v.acc.toFixed(1)}%` : ''}` : `<b>BEST</b> ${m.name} — 記録なし`;
+  const nm = isLab() ? m.name : (MAPS[settings.map] || MAPS.ware).name;
+  $(isLab() ? 'best-lab' : 'best').innerHTML = v ? `<b>BEST</b> ${nm} · ${curDiffText()} · ${curDur()}s — ${t('best.score')} <b>${v.score}</b>${v.acc != null ? ` · ${v.acc.toFixed(1)}%` : ''}` : `<b>BEST</b> ${nm} — ${t('best.none')}`;
 }
 function startRun() {
   readSettings();
@@ -940,7 +933,7 @@ function startRun() {
   if (game.combat) spawnBots(); else spawnTargets();
   game.running = true;
   $('menu').classList.add('hidden'); $('results').classList.add('hidden'); $('hud').classList.remove('hidden');
-  $('h-mode').textContent = game.mode.name + (game.combat ? ` · ${MAP.name} · 湧きパターン #${game.pattern + 1}/${PATTERN_COUNT}` : '');
+  $('h-mode').textContent = game.combat ? `${MAP.name} · ${t('hud.pattern')} #${game.pattern + 1}/${PATTERN_COUNT}` : game.mode.name;
   const s = sensState();
   $('h-sens').textContent = `${settings.dpi}DPI · H${settings.sensH}/V${settings.sensV} · ${R6.cm360(s.hipYawH, settings.dpi).toFixed(1)}cm/360`;
   $('hud').classList.toggle('combat', game.combat);
@@ -953,35 +946,35 @@ function showResults(complete) {
   let rows = []; let acc = null;
   if (game.combat) {
     acc = game.shots ? game.hits / game.shots * 100 : 0;
-    rows = [['キル', game.kills], ['ヘッドショット', game.headshots], ['命中率', `${acc.toFixed(1)}% (${game.hits}/${game.shots})`], ['与ダメージ', game.damage], ['キル/分', (game.kills / Math.max(played, 1) * 60).toFixed(1)]];
+    rows = [[t('res.kills'), game.kills], [t('res.hs'), game.headshots], [t('res.acc'), `${acc.toFixed(1)}% (${game.hits}/${game.shots})`], [t('res.dmg'), game.damage], [t('res.kpm'), (game.kills / Math.max(played, 1) * 60).toFixed(1)]];
   } else {
     acc = played > 0 ? game.onTargetTime / played * 100 : 0; const fireAcc = game.fireTime > 0 ? game.onTargetTime / game.fireTime * 100 : 0;
-    rows = [['オンターゲット率（全時間）', `${acc.toFixed(1)}%`], ['命中率（射撃中）', `${fireAcc.toFixed(1)}%`], ['オンターゲット時間', `${game.onTargetTime.toFixed(2)}s / ${played.toFixed(1)}s`]];
+    rows = [[t('res.ontarget'), `${acc.toFixed(1)}%`], [t('res.fireacc'), `${fireAcc.toFixed(1)}%`], [t('res.ontime'), `${game.onTargetTime.toFixed(2)}s / ${played.toFixed(1)}s`]];
   }
   let best = null; try { best = JSON.parse(localStorage.getItem(bestKey())); } catch (e) {}
   let isBest = false;
   if (complete && (!best || score > best.score)) { isBest = true; try { localStorage.setItem(bestKey(), JSON.stringify({ score, acc })); } catch (e) {} }
   $('results-score').innerHTML = `${score}${isBest ? '<small>★ NEW BEST</small>' : ''}`;
-  $('results-title').textContent = `${game.mode.name} · ${curDiffText()} · ${game.dur}s` + (complete ? '' : '（中断 — 記録は保存されません）');
-  $('results-body').innerHTML = rows.map(([k, v]) => `<div class="r"><span>${k}</span><b>${v}</b></div>`).join('') + `<div class="r"><span>平均FPS</span><b>${fps.avg.toFixed(0)}</b></div>`;
+  $('results-title').textContent = `${game.combat ? MAP.name : game.mode.name} · ${curDiffText()} · ${game.dur}s` + (complete ? '' : t('res.abort'));
+  $('results-body').innerHTML = rows.map(([k, v]) => `<div class="r"><span>${k}</span><b>${v}</b></div>`).join('') + `<div class="r"><span>${t('res.fps')}</span><b>${fps.avg.toFixed(0)}</b></div>`;
   $('results').classList.remove('hidden'); showBest();
 }
 // ---------------------------------------------------------------- sights
 // Geometry measured from in-game ADS screenshots (r6siegecenter.com sights guide). Units: 1000 = screen height,
 // X spans -W/2..W/2 with W = 1000 * aspect. In Siege the world stays visible around the housing — only the 12x fills the screen.
 const SIGHTS = {
-  holo:    { zoom: 1,   name: '1.0x Holo A（EOTech型）' },
-  holob:   { zoom: 1,   name: '1.0x Holo B（Y5S3追加型）' },
-  holoru:  { zoom: 1,   name: '1.0x ロシアンホロ' },
-  reddot:  { zoom: 1,   name: '1.0x Red Dot A（チューブ型）' },
-  reddotb: { zoom: 1,   name: '1.0x Red Dot B（Y5S3追加型）' },
-  reflex:  { zoom: 1,   name: '1.0x Reflex A（ドット）' },
-  reflexb: { zoom: 1,   name: '1.0x Reflex B（三角）' },
+  holo:    { zoom: 1,   get name() { return t('sight.holo'); } },
+  holob:   { zoom: 1,   get name() { return t('sight.holob'); } },
+  holoru:  { zoom: 1,   get name() { return t('sight.holoru'); } },
+  reddot:  { zoom: 1,   get name() { return t('sight.reddot'); } },
+  reddotb: { zoom: 1,   get name() { return t('sight.reddotb'); } },
+  reflex:  { zoom: 1,   get name() { return t('sight.reflex'); } },
+  reflexb: { zoom: 1,   get name() { return t('sight.reflexb'); } },
   '1.5':   { zoom: 1.5, name: '1.5x' },
   '2':     { zoom: 2,   name: '2.0x' },
   '2.5':   { zoom: 2.5, name: '2.5x ACOG' },
   '3':     { zoom: 3,   name: '3.0x' },
-  '12':    { zoom: 12,  name: '12.0x（CSRX 300）' },
+  '12':    { zoom: 12,  get name() { return t('sight.12'); } },
 };
 const HOUSING = '#141416', HOUSING2 = '#26272b', EDGE = '#000';
 const glow = 'filter="url(#glow)"';
@@ -1182,11 +1175,11 @@ function frame(now) {
 }
 
 // ---------------------------------------------------------------- boot
-loadSettings(); settings.scope = (SIGHTS[settings.sight] || SIGHTS['2.5']).zoom; selectedMode = MODES.some(m => m.id === settings.mode) ? settings.mode : 'cqb';
+loadSettings(); applyLang(settings.lang || ((navigator.language || '').startsWith('ja') ? 'ja' : 'en')); settings.scope = (SIGHTS[settings.sight] || SIGHTS['2.5']).zoom; selectedMode = MODES.some(m => m.id === settings.mode) ? settings.mode : 'combat';
 buildMap('hall'); buildModeList(); updateSensInfo(); showBest();
 for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'map', 'recoil', 'botsize', 'objects', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
 for (const id of ['difficulty', 'duration', 'difficulty-lab', 'duration-lab', 'objects']) $(id).addEventListener('change', () => { readSettings(); showBest(); });
-// MAP COMBAT / AIM LAB switch
+// MAP COMBAT / DRILLS switch
 function setMenuMode(mm) {
   settings.menuMode = mm; try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {}
   document.querySelectorAll('.ms').forEach(b => b.classList.toggle('on', b.dataset.mm === mm));
@@ -1196,6 +1189,7 @@ function setMenuMode(mm) {
   showBest();
 }
 document.querySelectorAll('.ms').forEach(b => b.addEventListener('click', () => setMenuMode(b.dataset.mm)));
+document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => { settings.lang = b.dataset.lang; applyLang(settings.lang); try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {} buildModeList(); showBest(); }));
 setMenuMode(settings.menuMode === 'lab' ? 'lab' : (MODES.find(x => x.id === selectedMode) || {}).group === 'track' ? 'lab' : 'combat');
 $('start').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('again').addEventListener('click', async () => { startRun(); await requestLock(); });
