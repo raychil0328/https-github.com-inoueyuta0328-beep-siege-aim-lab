@@ -679,7 +679,8 @@ class Bot {
   spawn(preset) {
     let spots = coverSpots(this.zone); if (!spots.length) for (const z of ['near', 'mid', 'far']) { spots = coverSpots(z); if (spots.length) { this.zone = z; break; } }
     this.spot = preset && preset.spot ? preset.spot : pickSpreadSpot(spots, this);
-    this.x = this.spot.hide[0]; this.z = this.spot.hide[1]; this.hp = BOT.hp; this.dead = 0; this.alive = true;
+    if (!spots.includes(this.spot)) this.zone = zoneOf(this.spot) || this.zone;
+    this.x = this.spot.hide[0]; this.z = this.spot.hide[1]; noteRecent(this.x, this.z); this.hp = BOT.hp; this.dead = 0; this.alive = true;
     this.crouch = this.spot.low ? 1 : 0; this.crouchT = this.crouch; this.lean = 0; this.leanT = 0; this.flash = 0;
     this.state = 'hide'; this.timer = preset ? preset.delay : rand(0.3, 1.0); this.dest = null; this.sprint = false;
   }
@@ -701,7 +702,7 @@ class Bot {
             this.state = 'headpeek'; this.crouchT = 0; this.timer = rand(0.35, 0.9) / D;
           } else { // relocate to another cover (walk or sprint)
             const spots = coverSpots(this.zone).filter(s => s.prop !== this.spot.prop && !segBlocked(this.x, this.z, s.hide[0], s.hide[1]));
-            if (spots.length) { this.spot = pick(spots); this.dest = this.spot.hide; this.state = 'move'; this.sprint = Math.random() < 0.55; this.crouchT = 0; this.leanT = 0; }
+            if (spots.length) { this.spot = spreadPick(spots, game.bots.filter(b => b !== this).map(b => [b.x, b.z]), Math.random, 3) || pick(spots); this.dest = this.spot.hide; this.state = 'move'; this.sprint = Math.random() < 0.55; this.crouchT = 0; this.leanT = 0; }
             else this.timer = rand(0.3, 0.8) / D;
           }
         }
@@ -749,19 +750,37 @@ class Bot {
 // generated from seed hash(map, k); one is picked at random for every run.
 // Spread spawns out: every bot takes the cover spot that is farthest from the bots already placed
 // (and from the player); among the best few a seeded/random choice keeps patterns varied.
-const SPREAD_TOPK = 3;
-function spreadPick(spots, others, rng) {
+const SPREAD_TOPK = 4;
+// Spot choice: score = distance to the nearest other bot / corpse / recently used spot / player (map spawn counts x0.6).
+// Only spots at least MIN_SEP away from all of those are eligible; among them one is picked at random from the
+// farthest half (never fewer than SPREAD_TOPK), so bots neither stack up nor always take the same corner.
+const MIN_SEP = 4.5;
+const RECENT = [];   // [x, z, t]: where bots spawned or died recently – nobody respawns there for a while
+function noteRecent(x, z) { RECENT.push([x, z, game.t]); if (RECENT.length > 40) RECENT.shift(); }
+function spreadPick(spots, others, rng, minSep = MIN_SEP) {
   if (!spots.length) return null;
   const sp = MAP.spawn;
   const scored = spots.map(s => { let d = Math.hypot(s.hide[0] - sp.x, s.hide[1] - sp.z) * 0.6; for (const o of others) d = Math.min(d, Math.hypot(s.hide[0] - o[0], s.hide[1] - o[1])); return [d, s]; });
   scored.sort((a, b) => b[0] - a[0]);
-  if (scored[0][0] <= 0.5 && scored.length > 1) return scored[0][1];   // everything crowded: just take the best
-  const k = Math.min(SPREAD_TOPK, scored.length);
-  return scored[Math.floor(rng() * k)][1];
+  const ok = scored.filter(s => s[0] >= minSep);
+  const pool = ok.length ? ok : scored.slice(0, 2);                      // nothing far enough: take one of the two best
+  const k = ok.length ? Math.min(ok.length, Math.max(SPREAD_TOPK, Math.ceil(ok.length / 2))) : pool.length;
+  return pool[Math.floor(rng() * k)][1];
 }
+const ZONES = ['near', 'mid', 'far'];
+function zoneOf(spot) { return ZONES.find(z => coverSpots(z).includes(spot)); }
+function minSepTo(spot, others) { let d = 99; for (const o of others) d = Math.min(d, Math.hypot(spot.hide[0] - o[0], spot.hide[1] - o[1])); return d; }
+// (re)spawn choice for a live game: avoid every other bot (alive or corpse), recent spawn / death spots and the player
 function pickSpreadSpot(spots, self) {
-  const others = game.bots.filter(b => b !== self && b.alive).map(b => [b.x, b.z]);
-  return spreadPick(spots, others, Math.random) || pick(spots);
+  const others = game.bots.filter(b => b !== self).map(b => [b.x, b.z]);
+  for (const r of RECENT) if (game.t - r[2] < 12) others.push([r[0], r[1]]);
+  others.push([game.px, game.pz]);
+  let spot = spreadPick(spots, others, Math.random);
+  if (!spot || minSepTo(spot, others) < MIN_SEP) {                       // own zone crowded: borrow from the whole map
+    const all = ZONES.flatMap(z => coverSpots(z)); const alt = spreadPick(all, others, Math.random);
+    if (alt && (!spot || minSepTo(alt, others) > minSepTo(spot, others))) spot = alt;
+  }
+  return spot || pick(spots);
 }
 function spawnPattern(mapKey, k, n, zones) {
   let h = 2166136261; for (const ch of mapKey + ':' + k) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
@@ -771,8 +790,7 @@ function spawnPattern(mapKey, k, n, zones) {
     let zone = zones[i % zones.length]; let spots = coverSpots(zone);
     if (!spots.length) for (const z of ['near', 'mid', 'far']) { spots = coverSpots(z); if (spots.length) { zone = z; break; } }
     let spot = spreadPick(spots, placed, rng);
-    const minD = s => Math.min(99, ...placed.map(o => Math.hypot(s.hide[0] - o[0], s.hide[1] - o[1])));
-    if (!spot || minD(spot) < 2.0) { const all = [...coverSpots('near'), ...coverSpots('mid'), ...coverSpots('far')]; const alt = spreadPick(all, placed, rng); if (alt && (!spot || minD(alt) > minD(spot))) spot = alt; }   // zone full: borrow a spot elsewhere
+    if (!spot || minSepTo(spot, placed) < MIN_SEP) { const all = ZONES.flatMap(z => coverSpots(z)); const alt = spreadPick(all, placed, rng); if (alt && (!spot || minSepTo(alt, placed) > minSepTo(spot, placed))) { spot = alt; zone = zoneOf(alt) || zone; } }   // zone full: borrow a spot elsewhere
     if (spot) placed.push(spot.hide);
     out.push({ zone, spot, delay: 0.2 + rng() * 1.6 });
   }
@@ -869,7 +887,7 @@ function fireShot(eye, view) {
   if (best) {
     const dmg = best.part === 'head' ? WEAPON.dmgHead : WEAPON.dmgBody; best.bot.hp -= dmg; best.bot.flash = 0.12; game.hits++; game.damage += dmg; game.hitMarker = 0.12; game.hitHead = best.part === 'head';
     game.score += 10;
-    if (best.bot.hp <= 0) { best.bot.alive = false; best.bot.dead = 0; game.kills++; if (best.part === 'head') { game.headshots++; game.score += 150; } else game.score += 100; }
+    if (best.bot.hp <= 0) { best.bot.alive = false; best.bot.dead = 0; game.kills++; noteRecent(best.bot.x, best.bot.z); game.killT = 1.0; game.killHead = best.part === 'head'; if (best.part === 'head') { game.headshots++; game.score += 150; } else game.score += 100; }
     game.impacts.push({ p: [eye[0] + d[0] * best.t, eye[1] + d[1] * best.t, eye[2] + d[2] * best.t], t: 0.08, c: best.part === 'head' ? [1, 0.2, 0.2] : COLORS.spark });
   } else {
     const t = Math.min(tProp, WEAPON.range); game.impacts.push({ p: [eye[0] + d[0] * t, eye[1] + d[1] * t, eye[2] + d[2] * t], t: 0.06, c: [0.8, 0.8, 0.8] });
@@ -879,7 +897,7 @@ function fireShot(eye, view) {
   if (game.ammo <= 0) startReload();
 }
 function updateWeapon(dt, eye, view) {
-  game.fireCd -= dt; game.muzzle = Math.max(0, game.muzzle - dt); game.hitMarker = Math.max(0, game.hitMarker - dt);
+  game.fireCd -= dt; game.muzzle = Math.max(0, game.muzzle - dt); game.hitMarker = Math.max(0, game.hitMarker - dt); game.killT = Math.max(0, (game.killT || 0) - dt);
   game.recoilVis = Math.max(0, game.recoilVis - dt * 12);
   if (game.reloading > 0) { game.reloading -= dt; if (game.reloading <= 0) { game.reloading = 0; game.ammo = WEAPON.mag; game.shotIdx = 0; } }
   if (game.firing && game.reloading <= 0 && game.ammo > 0) { let guard = 0; while (game.fireCd <= 0 && game.ammo > 0 && guard++ < 8) fireShot(eye, view); }
@@ -915,7 +933,7 @@ function startRun() {
   readSettings();
   game.mode = MODES.find(m => m.id === selectedMode); game.combat = game.mode.group === 'combat'; game.diff = curDiff(); game.dur = curDur();
   Object.assign(game, { t: 0, timeLeft: game.dur, onTargetTime: 0, fireTime: 0, score: 0, hitStreak: 0, shots: 0, hits: 0, headshots: 0, kills: 0, damage: 0,
-    ads: false, adsBlend: 0, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5.5, crouchHeld: false, crouch: 0, lean: 0, leanToggle: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0 });
+    ads: false, adsBlend: 0, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5.5, crouchHeld: false, crouch: 0, lean: 0, leanToggle: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0, killT: 0 }); RECENT.length = 0;
   input.dx = input.dy = 0; fps.sum = 0; fps.n = 0;
   buildMap(game.combat ? settings.map : 'hall'); game.targets = []; game.bots = [];
   game.px = MAP.spawn.x; game.pz = MAP.spawn.z; game.yaw = MAP.spawn.yaw;
@@ -1117,6 +1135,7 @@ function frame(now) {
     if (game.combat) { $('h-acc').textContent = (game.shots ? game.hits / game.shots * 100 : 0).toFixed(1) + '%'; $('h-kills').textContent = game.kills; $('h-ammo').textContent = game.reloading > 0 ? 'RELOAD' : settings.ammomode === 'infinite' ? '∞' : `${game.ammo} / ∞`; $('h-ammo').classList.toggle('low', settings.ammomode !== 'infinite' && game.ammo <= 8); }
     else { const played = game.dur - game.timeLeft; $('h-acc').textContent = (played > 0 ? game.onTargetTime / played * 100 : 0).toFixed(1) + '%'; }
     $('crosshair').classList.toggle('hit', game.hitMarker > 0); $('hitmark').classList.toggle('on', game.hitMarker > 0); $('hitmark').classList.toggle('head', game.hitHead);
+    const km = $('killmsg'); km.classList.toggle('on', game.killT > 0); if (game.killT > 0) { km.textContent = game.killHead ? 'HEADSHOT' : 'KILL'; km.classList.toggle('head', game.killHead); km.style.opacity = Math.min(1, game.killT * 2.5); }
     const st = `${game.sprint ? 'SPRINT' : game.crouch > 0.5 ? 'CROUCH' : game.moving ? 'WALK' : 'STAND'}${game.lean > 0.3 ? ' · LEAN L' : game.lean < -0.3 ? ' · LEAN R' : ''}`;
     if (st !== lastHudText) { lastHudText = st; $('h-stance').textContent = st; }
     if (game.timeLeft <= 0) finishRun();
