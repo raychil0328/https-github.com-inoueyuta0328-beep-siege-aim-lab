@@ -1,8 +1,8 @@
 name: Deploy SIEGE AIM TRAINER (Xserver)
 
-# main に push すると Xserver（https://xs288120.xsrv.jp/R6SAIM/）へ FTPS で差分転送する
-# 必要な Secrets: XSERVER_FTP_USER / XSERVER_FTP_PASSWORD
-#   FTP アカウントは接続先を /xs288120.xsrv.jp/public_html/R6SAIM に限定したものを使う
+# main に push すると Xserver（https://xs288120.xsrv.jp/R6SAIM/）へ SSH + rsync で転送する
+# 必要な Secret: XSERVER_SSH_KEY（パスフレーズなしの秘密鍵。公開鍵は Xserver の SSH 設定に登録済み）
+# Xserver の FTP は国外 IP から繋がらないため SSH（ポート 10022、国外アクセス制限 OFF）を使う
 on:
   push:
     branches: [main]
@@ -12,24 +12,27 @@ concurrency:
   group: xserver
   cancel-in-progress: false
 
+env:
+  SSH_HOST: sv16593.xserver.jp
+  SSH_PORT: 10022
+  SSH_USER: xs288120
+  REMOTE_DIR: xs288120.xsrv.jp/public_html/R6SAIM/
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Upload via FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: sv16593.xserver.jp
-          username: ${{ secrets.XSERVER_FTP_USER }}
-          password: ${{ secrets.XSERVER_FTP_PASSWORD }}
-          server-dir: ./
-          protocol: ftps
-          exclude: |
-            **/.git*
-            **/.git*/**
-            .github/**
-            .claude/**
-            CLAUDE.md
-            HANDOFF.md
-            README.md
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.XSERVER_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+      - name: Upload via rsync
+        run: |
+          rsync -rlvz --delete \
+            --exclude '.git*' --exclude '.github/' --exclude '.claude/' \
+            --exclude 'CLAUDE.md' --exclude 'README.md' \
+            -e "ssh -i ~/.ssh/id_deploy -p $SSH_PORT" \
+            ./ "$SSH_USER@$SSH_HOST:$REMOTE_DIR"
