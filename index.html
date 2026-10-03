@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIEGE AIM TRAINER｜非公式 R6S エイムトレーナー</title>
+<meta name="description" content="R6S(レインボーシックス シージ)の感度・ADS倍率・移動・リコイルを再現したブラウザ動作のエイムトレーナー / Browser aim trainer with exact R6S sensitivity, movement and recoil">
+<meta property="og:type" content="website">
+<meta property="og:title" content="SIEGE AIM TRAINER（非公式ファンメイド）">
+<meta property="og:description" content="Ubisoft 非公式のファンメイドツール。マッチング待ちの数分で、R6S の感度をそのまま入れてブラウザで即起動するエイム練習。マップ戦とドリル。">
+<meta property="og:url" content="https://xs288120.xsrv.jp/R6SAIM/">
+<meta property="og:image" content="https://xs288120.xsrv.jp/R6SAIM/img/ogp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#1d262d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23f2efe6'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%231b1d1f' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23e8590c'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500&family=Saira+Stencil+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<!-- HUD (in-game) -->
+<div id="hud" class="hidden">
+  <div id="crosshair"><i></i><i></i><i></i><i></i></div>
+  <div id="scope-ov" class="hidden"></div>
+  <div id="hitmark"><i></i><i></i></div>
+  <div id="killmsg"></div>
+  <div id="hud-top">
+    <div class="hud-box"><span class="lbl">TIME</span><span id="h-time">60.0</span></div>
+    <div class="hud-box"><span class="lbl">SCORE</span><span id="h-score">0</span></div>
+    <div class="hud-box"><span class="lbl">ACC</span><span id="h-acc">0.0%</span></div>
+    <div class="hud-box combat-only"><span class="lbl">KILLS</span><span id="h-kills">0</span></div>
+    <div class="hud-box"><span class="lbl">FPS</span><span id="h-fps">0</span></div>
+    <div class="hud-box"><span class="lbl">INPUT Hz</span><span id="h-hz">0</span></div>
+  </div>
+  <div id="hud-bl"><span id="h-stance">STAND</span></div>
+  <div id="hud-br" class="combat-only"><span class="lbl">AR · 800RPM</span><span id="h-ammo">30 / ∞</span></div>
+  <div id="hud-bottom">
+    <span id="h-mode"></span> · <span id="h-sens"></span> · <span id="h-zoom"></span>
+    <span class="dim" id="h-keys"></span>
+  </div>
+  <div id="hit-flash"></div>
+</div>
+
+<!-- MENU -->
+<div id="menu">
+  <div class="bg"></div>
+  <header>
+    <div class="title-strip">
+      <div class="logo"><span class="brand">SIEGE</span> AIM TRAINER<span class="unofficial" data-i18n="hdr.unofficial"></span></div>
+      <div class="unofficial-d" data-i18n="hdr.unofficial.d"></div>
+      <div class="sub" data-i18n="hdr.sub"></div>
+      <div class="spec" data-i18n="hdr.spec"></div>
+    </div>
+    <div class="tools">
+      <button id="open-guide" type="button" class="secondary" data-i18n="hdr.guide"></button>
+      <div class="lang"><button data-lang="ja">日本語</button><button data-lang="en">English</button></div>
+    </div>
+  </header>
+
+  <nav class="modeswitch">
+    <button id="ms-combat" class="ms on" data-mm="combat">
+      <img src="img/mode-combat.webp" alt="" width="72" height="72" decoding="async">
+      <span class="ms-t" data-i18n="ms.combat"></span><span class="ms-d" data-i18n="ms.combat.d"></span>
+    </button>
+    <button id="ms-lab" class="ms" data-mm="lab">
+      <img src="img/mode-vision.webp" alt="" width="72" height="72" decoding="async">
+      <span class="ms-t" data-i18n="ms.drills"></span><span class="ms-d" data-i18n="ms.drills.d"></span>
+    </button>
+  </nav>
+
+  <main>
+    <section id="pane-combat" class="panel modes-panel">
+      <h2><span data-i18n="combat.h2"></span><small data-i18n="combat.h2s"></small></h2>
+      <div class="grid g3">
+        <label><span data-i18n="lbl.map"></span> <select id="map">
+          <option value="ware" data-i18n="map.ware"></option>
+          <option value="office" data-i18n="map.office"></option>
+          <option value="bunker" data-i18n="map.bunker"></option>
+          <option value="atrium" data-i18n="map.atrium"></option>
+        </select></label>
+        <label><span data-i18n="lbl.objects"></span> <select id="objects">
+          <option value="large" selected data-i18n="obj.large"></option>
+          <option value="all" data-i18n="obj.all"></option>
+          <option value="none" data-i18n="obj.none"></option>
+        </select></label>
+        <label><span data-i18n="lbl.bots"></span> <select id="bots">
+          <option value="auto" selected data-i18n="bots.auto"></option>
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          <option value="5">5</option><option value="6">6</option><option value="8">8</option><option value="10">10</option>
+        </select></label>
+        <label><span data-i18n="lbl.botsize"></span> <select id="botsize">
+          <option value="s" data-i18n="bs.s"></option>
+          <option value="m" selected data-i18n="bs.m"></option>
+          <option value="l" data-i18n="bs.l"></option>
+        </select></label>
+        <label><span data-i18n="lbl.diff"></span> <select id="difficulty">
+          <option value="0.7">Easy</option>
+          <option value="1" selected>Normal</option>
+          <option value="1.35">Hard</option>
+          <option value="1.8">Insane</option>
+        </select></label>
+        <label><span data-i18n="lbl.dur"></span> <select id="duration">
+          <option value="30">30s</option>
+          <option value="60" selected>60s</option>
+          <option value="120">120s</option>
+          <option value="300">300s</option>
+        </select></label>
+        <label><span data-i18n="lbl.recoil"></span> <select id="recoil">
+          <option value="0" data-i18n="rc.0"></option>
+          <option value="0.5" data-i18n="rc.05"></option>
+          <option value="0.75" data-i18n="rc.075"></option>
+          <option value="1" selected data-i18n="rc.1"></option>
+          <option value="1.25" data-i18n="rc.125"></option>
+          <option value="1.5" data-i18n="rc.15"></option>
+          <option value="2" data-i18n="rc.2"></option>
+        </select></label>
+        <label><span data-i18n="lbl.ammo"></span> <select id="ammomode"><option value="mag" data-i18n="ammo.mag"></option><option value="infinite" data-i18n="ammo.inf"></option></select></label>
+      </div>
+      <div id="best" class="best"></div>
+      <button id="start" class="primary">DEPLOY<small data-i18n="start.sub"></small></button>
+      <div class="keys" id="keys-combat"></div>
+    </section>
+
+    <section id="pane-lab" class="panel modes-panel hidden">
+      <h2><span data-i18n="drills.h2"></span><small data-i18n="drills.h2s"></small></h2>
+      <div id="modes-track" class="modes"></div>
+      <h3 data-i18n="drills.settings"></h3>
+      <div class="grid g3">
+        <label><span data-i18n="lbl.diff.lab"></span> <select id="difficulty-lab">
+          <option value="0.7">Easy</option>
+          <option value="1" selected>Normal</option>
+          <option value="1.35">Hard</option>
+          <option value="1.8">Insane</option>
+        </select></label>
+        <label><span data-i18n="lbl.dur"></span> <select id="duration-lab">
+          <option value="30">30s</option>
+          <option value="60" selected>60s</option>
+          <option value="120">120s</option>
+        </select></label>
+      </div>
+      <div id="best-lab" class="best"></div>
+      <button id="start-lab" class="primary">START<small data-i18n="start.sub"></small></button>
+      <div class="keys" id="keys-lab"></div>
+    </section>
+
+    <section class="panel">
+      <h2><span data-i18n="common.h2"></span><small data-i18n="common.h2s"></small></h2>
+        <div class="row sightbar">
+          <label><span data-i18n="lbl.sight"></span> <select id="sight">
+            <option value="holo" data-i18n="sight.holo"></option>
+            <option value="holob" data-i18n="sight.holob"></option>
+            <option value="holoru" data-i18n="sight.holoru"></option>
+            <option value="reddot" data-i18n="sight.reddot"></option>
+            <option value="reddotb" data-i18n="sight.reddotb"></option>
+            <option value="reflex" data-i18n="sight.reflex"></option>
+            <option value="reflexb" data-i18n="sight.reflexb"></option>
+            <option value="1.5" data-i18n="sight.1.5"></option>
+            <option value="2" data-i18n="sight.2"></option>
+            <option value="2.5" selected data-i18n="sight.2.5"></option>
+            <option value="3" data-i18n="sight.3"></option>
+            <option value="12" data-i18n="sight.12"></option>
+          </select></label>
+          <label><span data-i18n="lbl.reticle"></span> <select id="reticle">
+            <option value="#ff2b2b" selected data-i18n="col.red"></option>
+            <option value="#2bff5a" data-i18n="col.green"></option>
+            <option value="#2b9bff" data-i18n="col.blue"></option>
+            <option value="#ffffff" data-i18n="col.white"></option>
+            <option value="#ff4fd8" data-i18n="col.pink"></option>
+            <option value="#ffe02b" data-i18n="col.yellow"></option>
+            <option value="#2bf0ff" data-i18n="col.cyan"></option>
+            <option value="#ff8c2b" data-i18n="col.orange"></option>
+          </select></label>
+        </div>
+      <div class="tabs">
+        <button class="on" data-tab="tab-sens" data-i18n="tab.sens"></button>
+        <button data-tab="tab-ads" data-i18n="tab.ads"></button>
+        <button data-tab="tab-ctl" data-i18n="tab.ctl"></button>
+        <button data-tab="tab-formula" data-i18n="tab.formula"></button>
+      </div>
+      <div id="tab-sens" class="tabpane">
+        <div class="grid">
+          <label><span data-i18n="lbl.dpi"></span> <input id="dpi" type="number" min="100" max="32000" step="50" value="800"></label>
+          <label><span data-i18n="lbl.fov"></span> <input id="fov" type="number" min="60" max="90" step="1" value="90"></label>
+          <label><span data-i18n="lbl.sensH"></span> <input id="sensH" type="number" min="1" max="100" step="1" value="10"></label>
+          <label><span data-i18n="lbl.sensV"></span> <input id="sensV" type="number" min="1" max="100" step="1" value="10"></label>
+          <label title="GameSettings.ini: MouseSensitivityMultiplierUnit">MouseSensitivityMultiplierUnit <input id="msmu" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
+          <label title="GameSettings.ini: XFactorAiming">XFactorAiming <input id="xfactor" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
+        </div>
+      </div>
+      <div id="tab-ads" class="tabpane hidden">
+        <div class="grid ads">
+          <label>1.0x Holo / Red Dot <input id="ads1" type="number" min="1" max="100" value="50"></label>
+          <label>1.5x <input id="ads15" type="number" min="1" max="100" value="50"></label>
+          <label>2.0x <input id="ads2" type="number" min="1" max="100" value="50"></label>
+          <label>2.5x ACOG <input id="ads25" type="number" min="1" max="100" value="50"></label>
+          <label>3.0x <input id="ads3" type="number" min="1" max="100" value="50"></label>
+          <label>12.0x Glaz / Kali <input id="ads12" type="number" min="1" max="100" value="50"></label>
+        </div>
+      </div>
+      <div id="tab-ctl" class="tabpane hidden">
+        <div class="grid">
+          <label><span data-i18n="lbl.adsmode"></span> <select id="adsmode"><option value="hold" data-i18n="hold"></option><option value="toggle" data-i18n="toggle"></option></select></label>
+          <label><span data-i18n="lbl.crouchmode"></span> <select id="crouchmode"><option value="toggle" data-i18n="toggle"></option><option value="hold" data-i18n="hold"></option></select></label>
+          <label><span data-i18n="lbl.leanmode"></span> <select id="leanmode"><option value="hold" data-i18n="lean.hold"></option><option value="toggle" data-i18n="lean.toggle"></option></select></label>
+          <label><span data-i18n="lbl.walkmode"></span> <select id="walkmode"><option value="hold" data-i18n="lean.hold"></option><option value="toggle" data-i18n="lean.toggle"></option></select></label>
+          <label><span data-i18n="lbl.adsspeed"></span> <select id="adsspeed">
+            <option value="1">3.10 m/s (×1.0)</option><option value="0.92" selected>2.85 m/s (×0.92)</option><option value="0.85">2.64 m/s (×0.85)</option><option value="0.75">2.33 m/s (×0.75)</option><option value="0.6">1.86 m/s (×0.6)</option>
+          </select></label>
+          <label><span data-i18n="lbl.slowspeed"></span> <select id="slowspeed">
+            <option value="2.2">2.20 m/s</option><option value="1.85">1.85 m/s</option><option value="1.55" selected>1.55 m/s</option><option value="1.3">1.30 m/s</option>
+          </select></label>
+          <label class="chk"><span data-i18n="lbl.invert"></span><input id="invert" type="checkbox"></label>
+        </div>
+        <h3 data-i18n="kb.title"></h3>
+        <div id="keybinds" class="keybinds"></div>
+        <button id="keys-reset" type="button" class="secondary small" data-i18n="kb.reset"></button>
+        <div class="note" data-i18n-html="note.move"></div>
+      </div>
+      <div id="tab-formula" class="tabpane hidden">
+<pre data-i18n="formula"></pre>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span class="k" data-i18n="st.hip"></span><b id="si-hip">—</b><small id="si-hip2"></small></div>
+        <div class="stat"><span class="k" data-i18n="st.ads"></span><b id="si-ads">—</b><small id="si-ads2"></small></div>
+        <div class="stat"><span class="k" data-i18n="st.fov"></span><b id="si-fov">—</b><small data-i18n="st.fov2"></small></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="results" class="hidden">
+    <div class="card">
+      <div class="eyebrow">AFTER ACTION REPORT</div>
+      <div class="score-row"><div id="results-score" class="score">0</div><div id="results-stamp" class="stamp hidden" data-i18n="res.stamp"></div></div>
+      <div id="results-title" class="title"></div>
+      <div id="results-body"></div>
+      <div id="results-hist" class="hist"></div>
+      <div class="actions">
+        <button id="again" class="primary">REDEPLOY</button>
+        <button id="share-x" type="button" class="secondary" data-i18n="share.btn"></button>
+        <button id="close-results" class="secondary" data-i18n="res.back"></button>
+      </div>
+      <a id="donate-results" class="donate hidden" href="#" target="_blank" rel="noopener"></a>
+    </div>
+  </div>
+
+  <div id="guide" class="hidden" role="dialog" aria-modal="true" aria-labelledby="g-title">
+    <div class="sheet">
+      <div class="g-top"><b id="g-title" data-i18n="guide.title"></b><button id="g-skip" type="button" class="linkbtn" data-i18n="guide.skip"></button></div>
+      <div class="g-step">
+        <h3 data-i18n="guide.s1.h"></h3><p data-i18n="guide.s1.p"></p>
+        <div class="g-pick">
+          <button type="button" data-pick="combat"><img data-src="img/mode-combat.webp" alt="" width="120" height="120"><b data-i18n="guide.s1.combat"></b><span data-i18n="guide.s1.combat.d"></span></button>
+          <button type="button" data-pick="lab"><img data-src="img/mode-track.webp" alt="" width="120" height="120"><b data-i18n="guide.s1.drills"></b><span data-i18n="guide.s1.drills.d"></span></button>
+        </div>
+      </div>
+      <div class="g-step hidden"><img class="g-img" data-src="img/guide-sens.webp" alt="" width="220" height="220"><h3 data-i18n="guide.s2.h"></h3><p data-i18n="guide.s2.p"></p></div>
+      <div class="g-step hidden"><img class="g-img" data-src="img/guide-peek.webp" alt="" width="220" height="220"><h3 data-i18n="guide.s3.h"></h3><p data-i18n="guide.s3.p"></p></div>
+      <div class="g-step hidden"><img class="g-img" data-src="img/guide-ads.webp" alt="" width="220" height="220"><h3 data-i18n="guide.s4.h"></h3><p data-i18n="guide.s4.p"></p></div>
+      <div class="g-nav"><button id="g-prev" type="button" class="secondary" data-i18n="guide.prev"></button><span class="g-dots"><i></i><i></i><i></i><i></i></span><button id="g-next" type="button" class="primary"></button></div>
+    </div>
+  </div>
+
+  <footer>
+    <span class="disclaimer" data-i18n="footer"></span>
+    · <a href="https://github.com/raychil0328/https-github.com-inoueyuta0328-beep-siege-aim-lab" target="_blank" rel="noopener">GitHub</a>
+    <a id="donate-footer" class="donate hidden" href="#" target="_blank" rel="noopener"></a>
+  </footer>
+</div>
+
+<script src="config.js"></script>
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
