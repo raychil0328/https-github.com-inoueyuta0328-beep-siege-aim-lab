@@ -494,12 +494,22 @@ const COLORS = {
 };
 
 // ---------------------------------------------------------------- tracking targets (laser modes)
+// Operator body geometry. Head centre = eye height (1.60 m standing / 1.05 m crouched) so your crosshair at
+// headline is exactly on the enemy head, as in Siege. Offsets are [dx, y] with lean rotating about the body centre.
+function opGeom(crouch, lean) {
+  const headY = MOVE.eyeStand + (MOVE.eyeCrouch - MOVE.eyeStand) * crouch;
+  const r = 0.27, headR = 0.15, bottom = 0.2, top = headY - 0.17;
+  const hh = Math.max(0.02, (top - bottom) / 2 - r), cy = (top + bottom) / 2;
+  const sn = Math.sin(-lean), cs = Math.cos(lean);
+  return { r, headR, hh, cy, a: [-sn * hh, cy - hh * cs], b: [sn * hh, cy + hh * cs], head: [sn * (headY - cy), cy + (headY - cy) * cs] };
+}
 class Target {
   constructor(opts) { Object.assign(this, { x: 0, y: 1.0, z: -6, vx: 0, vy: 0, vz: 0, r: 0.28, hh: 0.55, lean: 0, crouch: 0, active: true, kind: 'op', timer: 0 }, opts); }
   rayHit(o, d) {
-    const hh = this.hh * (1 - this.crouch * 0.45);
-    const a = [this.x, this.y - hh, this.z], b = [this.x + Math.sin(-this.lean) * 2 * hh, this.y + hh * Math.cos(this.lean), this.z];
-    return segRay(o, d, a, b).dist <= this.r;
+    if (this.kind !== 'op') { const a = [this.x, this.y - this.hh, this.z], b = [this.x, this.y + this.hh, this.z]; return segRay(o, d, a, b).dist <= this.r; }
+    const g = opGeom(this.crouch, this.lean);
+    if (raySphere(o, d, [this.x + g.head[0], g.head[1], this.z], g.headR) < Infinity) return true;
+    return segRay(o, d, [this.x + g.a[0], g.a[1], this.z], [this.x + g.b[0], g.b[1], this.z]).dist <= g.r;
   }
 }
 const B = { xmin: -10, xmax: 10, ymin: 0.9, ymax: 4.2, zmin: -24, zmax: -4 };
@@ -559,7 +569,7 @@ function updateTargets(dt) {
 }
 
 // ---------------------------------------------------------------- bots (combat modes)
-const BOT = { r: 0.28, hh: 0.55, headR: 0.16, hp: 100, walk: 3.1, sprint: 5.3, crouch: 1.55, respawn: 1.2 };
+const BOT = { r: 0.27, headR: 0.15, hp: 100, walk: 3.1, sprint: 5.3, crouch: 1.55, respawn: 1.2 };
 class Bot {
   constructor(zone, preset) { this.zone = zone; this.spawn(preset); }
   spawn(preset) {
@@ -569,12 +579,9 @@ class Bot {
     this.crouch = this.spot.low ? 1 : 0; this.crouchT = this.crouch; this.lean = 0; this.leanT = 0; this.flash = 0;
     this.state = 'hide'; this.timer = preset ? preset.delay : rand(0.3, 1.0); this.dest = null; this.sprint = false;
   }
-  get bodyY() { return (BOT.hh * (1 - this.crouch * 0.45)) + BOT.r + 0.05; }
-  get segs() { // body capsule segment + head center
-    const hh = BOT.hh * (1 - this.crouch * 0.45), y = this.bodyY;
-    const a = [this.x, y - hh, this.z], b = [this.x + Math.sin(-this.lean) * 2 * hh, y + hh * Math.cos(this.lean), this.z];
-    const head = [this.x + Math.sin(-this.lean) * (hh + BOT.r + 0.05), y + (hh + BOT.r + 0.05) * Math.cos(this.lean), this.z];
-    return { a, b, head };
+  get segs() { // body capsule segment + head centre (world space)
+    const g = opGeom(this.crouch, this.lean);
+    return { a: [this.x + g.a[0], g.a[1], this.z], b: [this.x + g.b[0], g.b[1], this.z], head: [this.x + g.head[0], g.head[1], this.z], g };
   }
   update(dt, D) {
     if (!this.alive) { this.dead += dt; if (this.dead > BOT.respawn) this.spawn(); return; }
@@ -628,9 +635,9 @@ class Bot {
     this.x = nx; this.z = nz; return false;
   }
   hitTest(o, d) { // returns {t, part} or null
-    const s = this.segs; const th = raySphere(o, d, s.head, BOT.headR); const body = segRay(o, d, s.a, s.b);
+    const s = this.segs; const th = raySphere(o, d, s.head, s.g.headR); const body = segRay(o, d, s.a, s.b);
     if (th < Infinity) return { t: th, part: 'head' };
-    if (body.dist <= BOT.r) return { t: body.t, part: 'body' };
+    if (body.dist <= s.g.r) return { t: body.t, part: 'body' };
     return null;
   }
 }
@@ -993,9 +1000,9 @@ function frame(now) {
   if (game.combat || !game.running) for (const p of PROPS) draw(meshBox, modelTRS(p.x, p.h / 2, p.z, p.w, p.h, p.d), p.kind === 'crate' ? COLORS.crate : p.kind === 'wall' ? COLORS.propwall : p.kind === 'furniture' ? COLORS.furniture : COLORS.pillar, 1, 0);
   for (const T of game.targets) {
     if (T.kind === 'op') {
-      const hh = T.hh * (1 - T.crouch * 0.45); const col = T.hit ? COLORS.bodyHit : (T.flash ? [1, 0.9, 0.5] : COLORS.body);
-      draw(meshBody, modelTRS(T.x, T.y, T.z, 1, hh / T.hh, 1, T.lean), col, 0, T.hit ? 0.5 : 0.05);
-      draw(meshHead, modelTRS(T.x + Math.sin(-T.lean) * (hh + T.r + 0.05), T.y + (hh + T.r + 0.05) * Math.cos(T.lean), T.z), T.hit ? COLORS.bodyHit : COLORS.head, 0, T.hit ? 0.6 : 0.15);
+      const g = opGeom(T.crouch, T.lean); const col = T.hit ? COLORS.bodyHit : (T.flash ? [1, 0.9, 0.5] : COLORS.body);
+      draw(meshBody, modelTRS(T.x, g.cy, T.z, g.r / 0.28, (2 * g.hh + 2 * g.r) / 1.66, g.r / 0.28, T.lean), col, 0, T.hit ? 0.5 : 0.05);
+      draw(meshHead, modelTRS(T.x + g.head[0], g.head[1], T.z, g.headR / 0.16, g.headR / 0.16, g.headR / 0.16), T.hit ? COLORS.bodyHit : COLORS.head, 0, T.hit ? 0.6 : 0.15);
     } else {
       const col = !T.active ? COLORS.inactive : (T.hit ? COLORS.bodyHit : COLORS.active); const sc = T.r / 0.14;
       draw(meshDot, modelTRS(T.x, T.y, T.z, sc, sc, sc), col, 0, T.active ? (T.hit ? 0.9 : 0.5) : 0.0);
@@ -1003,9 +1010,9 @@ function frame(now) {
   }
   for (const b of game.bots) {
     if (!b.alive) { if (b.dead < 0.6) draw(meshBody, modelTRS(b.x, 0.3, b.z, 1, 0.35, 1, 1.4), COLORS.dead, 0, 0); continue; }
-    const hh = BOT.hh * (1 - b.crouch * 0.45); const s2 = b.segs; const col = b.flash > 0 ? COLORS.bodyHit : COLORS.body;
-    draw(meshBody, modelTRS(b.x, b.bodyY, b.z, 1, hh / BOT.hh, 1, b.lean), col, 0, b.flash > 0 ? 0.6 : 0.05);
-    draw(meshHead, modelTRS(s2.head[0], s2.head[1], s2.head[2]), b.flash > 0 ? COLORS.bodyHit : COLORS.head, 0, 0.15);
+    const s2 = b.segs, g = s2.g; const col = b.flash > 0 ? COLORS.bodyHit : COLORS.body;
+    draw(meshBody, modelTRS(b.x, g.cy, b.z, g.r / 0.28, (2 * g.hh + 2 * g.r) / 1.66, g.r / 0.28, b.lean), col, 0, b.flash > 0 ? 0.6 : 0.05);
+    draw(meshHead, modelTRS(s2.head[0], s2.head[1], s2.head[2], g.headR / 0.16, g.headR / 0.16, g.headR / 0.16), b.flash > 0 ? COLORS.bodyHit : COLORS.head, 0, 0.15);
   }
   for (const im of game.impacts) { const r = 0.06 + (0.08 - im.t) * 0.8; draw(meshUnit, modelTRS(im.p[0], im.p[1], im.p[2], r, r, r), im.c, 0, 1.0); }
   // weapon viewmodel (camera space; hidden in ADS — the scope overlay takes over)
