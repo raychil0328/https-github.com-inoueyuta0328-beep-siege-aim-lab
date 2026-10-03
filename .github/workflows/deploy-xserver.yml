@@ -28,11 +28,12 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.XSERVER_SSH_KEY }}" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          # ホスト鍵は固定（サーバーパネルの ED25519 フィンガープリント SHA256:6n4vNqnPFuTqKTk5kEe+rfJ1yc2c+ZY7IrVQvBy/Sqk と一致）
+          echo "[$SSH_HOST]:$SSH_PORT ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGkAfJwujToiUlL6hEr4hrFZzuSbP7mF0iVDwHguGzVS" >> ~/.ssh/known_hosts
       - name: Upload via rsync
         run: |
           rsync -rlvz --delete \
             --exclude '.git*' --exclude '.github/' --exclude '.claude/' \
             --exclude 'CLAUDE.md' --exclude 'README.md' \
-            -e "ssh -i ~/.ssh/id_deploy -p $SSH_PORT" \
+            -e "ssh -i ~/.ssh/id_deploy -p $SSH_PORT -o ConnectTimeout=30" \
             ./ "$SSH_USER@$SSH_HOST:$REMOTE_DIR"
