@@ -2,6 +2,8 @@ name: Deploy SIEGE AIM TRAINER (Xserver)
 
 # main に push すると Xserver（https://xs288120.xsrv.jp/R6SAIM/）へ SSH + rsync で転送する
 # 必要な Secret: XSERVER_SSH_KEY（パスフレーズなしの秘密鍵。公開鍵は Xserver の SSH 設定に登録済み）
+# この鍵はサーバー側の authorized_keys で rrsync -wo（/R6SAIM への書き込み専用）に制限済み。
+# そのため転送先パスは R6SAIM からの相対パス（./）で指定する。シェルや他フォルダへのアクセスは拒否される。
 # Xserver の FTP は国外 IP から繋がらないため SSH（ポート 10022、国外アクセス制限 OFF）を使う
 on:
   push:
@@ -16,7 +18,7 @@ env:
   SSH_HOST: sv16593.xserver.jp
   SSH_PORT: 10022
   SSH_USER: xs288120
-  REMOTE_DIR: xs288120.xsrv.jp/public_html/R6SAIM/
+  REMOTE_DIR: ./
 
 jobs:
   deploy:

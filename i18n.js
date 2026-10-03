@@ -1,7 +1,8 @@
 /* UI strings. Elements carry data-i18n="key" (textContent) or data-i18n-html="key" (innerHTML); JS uses t(key). */
 const I18N = {
   ja: {
-    'title': 'SIEGE AIM TRAINER — R6S Aim Trainer',
+    'title': 'SIEGE AIM TRAINER｜非公式 R6S エイムトレーナー',
+    'hdr.unofficial': '非公式', 'hdr.unofficial.d': 'Ubisoft 公式のツールではありません。ファンが個人で作った非公式のトレーナーです。',
     'hdr.sub': 'R6S の感度・移動・リコイルを再現したエイム練習。マッチング待ちの数分に、ブラウザですぐ始めてすぐ終われます。',
     'ms.combat': 'MAP COMBAT', 'ms.combat.d': '室内マップを動き回り、カバーから顔を出す BOT と撃ち合う。移動とリコイルあり。',
     'ms.drills': 'DRILLS', 'ms.drills.d': 'その場で動く的を追い続ける。リコイルなし、追えていた時間で採点。',
@@ -66,7 +67,8 @@ cm/360  = 2.54 × 360 / (yaw × DPI)`,
     'mode.microdot.desc': '小さなヘッド大のターゲットが細かく揺れる。ADS での微調整。',
   },
   en: {
-    'title': 'SIEGE AIM TRAINER — R6S Aim Trainer',
+    'title': 'SIEGE AIM TRAINER | Unofficial R6S aim trainer',
+    'hdr.unofficial': 'UNOFFICIAL', 'hdr.unofficial.d': 'Not an official Ubisoft product. A fan-made trainer built by an individual.',
     'hdr.sub': 'Aim practice with R6S sensitivity, movement and recoil. Starts and stops instantly in the browser, made for the minutes spent waiting in matchmaking.',
     'ms.combat': 'MAP COMBAT', 'ms.combat.d': 'Move through indoor rooms and trade shots with bots peeking from cover. Movement and recoil on.',
     'ms.drills': 'DRILLS', 'ms.drills.d': 'Keep your crosshair on moving targets. No recoil, scored by time on target.',
