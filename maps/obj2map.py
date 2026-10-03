@@ -166,11 +166,21 @@ def main():
             nj, ni = j + dj, i + di
             if 0 <= nj < H and 0 <= ni < W and not solid[nj, ni] and not reach[nj, ni]: reach[nj, ni] = True; q.append((nj, ni))
     holes = ~solid & ~reach
-    # a hole surrounded by wall cells becomes wall, otherwise furniture with the surrounding height
-    for j, i in zip(*np.where(holes)):
-        nb = [(j + dj, i + di) for dj, di in ((1, 0), (-1, 0), (0, 1), (0, -1)) if 0 <= j + dj < H and 0 <= i + di < W]
-        if all(wall_mask[a, b] or holes[a, b] for a, b in nb) and any(wall_mask[a, b] for a, b in nb): wall_mask[j, i] = True
-        else: furn_mask[j, i] = True; hcol[j, i] = max([hcol[a, b] for a, b in nb if furn_mask[a, b] or wall_mask[a, b]] + [vx])
+    # label hole components; small ones (<= 3 m^2) are hollow object shells -> fill; large ones are enclosed rooms -> keep open
+    lab = np.zeros((H, W), int); comp = 0
+    for j0, i0 in zip(*np.where(holes)):
+        if lab[j0, i0]: continue
+        comp += 1; cells = [(j0, i0)]; lab[j0, i0] = comp; qq = deque([(j0, i0)])
+        while qq:
+            j, i = qq.popleft()
+            for dj, di in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nj, ni = j + dj, i + di
+                if 0 <= nj < H and 0 <= ni < W and holes[nj, ni] and not lab[nj, ni]: lab[nj, ni] = comp; qq.append((nj, ni)); cells.append((nj, ni))
+        if len(cells) * vx * vx > 3.0: continue
+        for j, i in cells:
+            nb = [(j + dj, i + di) for dj, di in ((1, 0), (-1, 0), (0, 1), (0, -1)) if 0 <= j + dj < H and 0 <= i + di < W]
+            if all(wall_mask[a, b] or holes[a, b] for a, b in nb) and any(wall_mask[a, b] for a, b in nb): wall_mask[j, i] = True
+            else: furn_mask[j, i] = True; hcol[j, i] = max([hcol[a, b] for a, b in nb if furn_mask[a, b] or wall_mask[a, b]] + [vx])
     org = (xmin, zmin)
     walls = boxes_from_mask(wall_mask, org, vx, lambda i, i2, j, j2: a.ceiling + 0.2)
     furn = boxes_from_mask(furn_mask, org, vx, lambda i, i2, j, j2: max(0.3, float(np.median(hcol[j:j2 + 1, i:i2 + 1]) + 0.25)))
