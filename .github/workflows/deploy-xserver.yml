@@ -1,8 +1,8 @@
 name: Deploy SIEGE AIM TRAINER (Xserver)
 
-# main に push すると Xserver（https://xs288120.xsrv.jp/skirmish1/）へ FTPS で差分転送する
+# main に push すると Xserver（https://xs288120.xsrv.jp/aim/）へ FTPS で差分転送する
 # 必要な Secrets: XSERVER_FTP_USER / XSERVER_FTP_PASSWORD
-#   FTP アカウントは接続先を /xs288120.xsrv.jp/public_html/skirmish1 に限定したものを使う
+#   FTP アカウントは接続先を /xs288120.xsrv.jp/public_html/aim に限定したものを使う
 on:
   push:
     branches: [main]
