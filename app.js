@@ -809,57 +809,109 @@ function showResults(complete) {
   $('results-body').innerHTML = rows.map(([k, v]) => `<div class="r"><span>${k}</span><b>${v}</b></div>`).join('') + `<div class="r"><span>平均FPS</span><b>${fps.avg.toFixed(0)}</b></div>`;
   $('results').classList.remove('hidden'); showBest();
 }
-// ---------------------------------------------------------------- sights (SVG overlays; units: 1000 = screen height)
+// ---------------------------------------------------------------- sights
+// Geometry measured from in-game ADS screenshots (r6siegecenter.com sights guide). Units: 1000 = screen height,
+// X spans -W/2..W/2 with W = 1000 * aspect. In Siege the world stays visible around the housing — only the 12x fills the screen.
 const SIGHTS = {
-  holo:   { zoom: 1,   name: '1.0x Holo',    kind: 'rect',   w: 600, h: 430, rx: 70, frame: 34, outside: 0.38, tint: 0.07 },
-  reddot: { zoom: 1,   name: '1.0x Red Dot', kind: 'circle', r: 300, frame: 46, outside: 0.38, tint: 0.05 },
-  reflex: { zoom: 1,   name: '1.0x Reflex',  kind: 'rect',   w: 430, h: 380, rx: 24, frame: 18, outside: 0.32, tint: 0.04 },
-  '1.5':  { zoom: 1.5, name: '1.5x',         kind: 'circle', r: 330, frame: 36, outside: 0.9,  tint: 0.08 },
-  '2':    { zoom: 2,   name: '2.0x',         kind: 'circle', r: 340, frame: 36, outside: 0.92, tint: 0.08 },
-  '2.5':  { zoom: 2.5, name: '2.5x ACOG',    kind: 'circle', r: 350, frame: 40, outside: 0.94, tint: 0.1 },
-  '3':    { zoom: 3,   name: '3.0x',         kind: 'circle', r: 350, frame: 40, outside: 0.94, tint: 0.1 },
-  '12':   { zoom: 12,  name: '12.0x',        kind: 'circle', r: 420, frame: 44, outside: 0.97, tint: 0.12 },
+  holo:    { zoom: 1,   name: '1.0x Holo A（EOTech型）' },
+  holob:   { zoom: 1,   name: '1.0x Holo B（Y5S3追加型）' },
+  holoru:  { zoom: 1,   name: '1.0x ロシアンホロ' },
+  reddot:  { zoom: 1,   name: '1.0x Red Dot A（チューブ型）' },
+  reddotb: { zoom: 1,   name: '1.0x Red Dot B（Y5S3追加型）' },
+  reflex:  { zoom: 1,   name: '1.0x Reflex A（ドット）' },
+  reflexb: { zoom: 1,   name: '1.0x Reflex B（三角）' },
+  '1.5':   { zoom: 1.5, name: '1.5x' },
+  '2':     { zoom: 2,   name: '2.0x' },
+  '2.5':   { zoom: 2.5, name: '2.5x ACOG' },
+  '3':     { zoom: 3,   name: '3.0x' },
+  '12':    { zoom: 12,  name: '12.0x（CSRX 300）' },
 };
-function reticleSVG(key, c) {
-  const glow = `filter="url(#glow)"`;
+const HOUSING = '#141416', HOUSING2 = '#26272b', EDGE = '#000';
+const glow = 'filter="url(#glow)"';
+// window shapes (used both as glass area and as the hole in the housing)
+function winShape(key) {
   switch (key) {
-    case 'holo': // EOTech-style 65 MOA ring + 1 MOA dot, ticks at 3 / 6 / 9
-      return `<g ${glow} stroke="${c}" fill="none" stroke-width="2.6"><circle r="50"/><line x1="-50" y1="0" x2="-64" y2="0"/><line x1="50" y1="0" x2="64" y2="0"/><line x1="0" y1="50" x2="0" y2="64"/></g><circle r="4" fill="${c}" ${glow}/>`;
-    case 'reddot':
-      return `<circle r="5.5" fill="${c}" ${glow}/>`;
-    case 'reflex': // small dot with faint bracket
-      return `<circle r="4" fill="${c}" ${glow}/>`;
-    case '1.5': // circle-dot with outer stadia
-      return `<g ${glow} stroke="${c}" fill="none" stroke-width="2.6"><circle r="95"/><line x1="-330" y1="0" x2="-118" y2="0"/><line x1="118" y1="0" x2="330" y2="0"/><line x1="0" y1="118" x2="0" y2="330"/></g><circle r="3.5" fill="${c}" ${glow}/>`;
-    case '2': // duplex crosshair
-      return `<g ${glow} stroke="${c}" fill="none"><g stroke-width="9"><line x1="-340" y1="0" x2="-130" y2="0"/><line x1="130" y1="0" x2="340" y2="0"/><line x1="0" y1="130" x2="0" y2="340"/><line x1="0" y1="-340" x2="0" y2="-130"/></g><g stroke-width="2"><line x1="-130" y1="0" x2="-22" y2="0"/><line x1="22" y1="0" x2="130" y2="0"/><line x1="0" y1="22" x2="0" y2="130"/><line x1="0" y1="-130" x2="0" y2="-22"/></g></g><circle r="3" fill="${c}" ${glow}/>`;
-    case '2.5': // ACOG chevron + post with BDC ticks
-      return `<g ${glow} stroke="${c}" fill="none" stroke-width="5" stroke-linejoin="miter"><path d="M-34 24 L0 -26 L34 24"/></g><g ${glow} stroke="${c}" stroke-width="3"><line x1="0" y1="34" x2="0" y2="230"/><line x1="-16" y1="90" x2="16" y2="90"/><line x1="-13" y1="135" x2="13" y2="135"/><line x1="-10" y1="180" x2="10" y2="180"/></g><g stroke="#111" stroke-width="7"><line x1="-350" y1="0" x2="-210" y2="0"/><line x1="210" y1="0" x2="350" y2="0"/><line x1="0" y1="250" x2="0" y2="350"/></g>`;
-    case '3': // fine crosshair with mil ticks and dot
-      return `<g ${glow} stroke="${c}" fill="none" stroke-width="2"><line x1="-350" y1="0" x2="-28" y2="0"/><line x1="28" y1="0" x2="350" y2="0"/><line x1="0" y1="28" x2="0" y2="350"/><line x1="0" y1="-350" x2="0" y2="-28"/>${[70,140,210].map(d=>`<line x1="${d}" y1="-9" x2="${d}" y2="9"/><line x1="${-d}" y1="-9" x2="${-d}" y2="9"/><line x1="-9" y1="${d}" x2="9" y2="${d}"/><line x1="-9" y1="${-d}" x2="9" y2="${-d}"/>`).join('')}</g><circle r="3" fill="${c}" ${glow}/>`;
-    case '12': // mil-dot
-      return `<g stroke="${c}" fill="${c}" ${glow}><g stroke-width="1.6" fill="none"><line x1="-420" y1="0" x2="420" y2="0"/><line x1="0" y1="-420" x2="0" y2="420"/></g>${[1,2,3,4].map(i=>`<circle cx="${i*70}" r="4"/><circle cx="${-i*70}" r="4"/><circle cy="${i*70}" r="4"/><circle cy="${-i*70}" r="4"/>`).join('')}<g stroke-width="10"><line x1="-420" y1="0" x2="-320" y2="0"/><line x1="320" y1="0" x2="420" y2="0"/><line x1="0" y1="320" x2="0" y2="420"/><line x1="0" y1="-420" x2="0" y2="-320"/></g></g>`;
+    case 'holo':    return `<rect x="-130" y="-120" width="260" height="240" rx="26"/>`;        // 26% x 24% of screen height, rounded
+    case 'holob':   return `<path d="M-115 -115 L115 -115 L130 -60 L130 110 L-130 110 L-130 -60 Z"/>`; // trapezoid-top window
+    case 'holoru':  return `<rect x="-118" y="-118" width="236" height="236" rx="18"/>`;
+    case 'reddot':  return `<circle r="225"/>`;                                                   // inner glass ~45% of height
+    case 'reddotb': return `<circle r="150"/>`;
+    case 'reflex':  return `<path d="M-95 100 L-95 -40 Q-95 -115 0 -115 Q95 -115 95 -40 L95 100 Z"/>`; // arched window
+    case 'reflexb': return `<path d="M-90 100 L-90 -50 Q-90 -110 0 -110 Q90 -110 90 -50 L90 100 Z"/>`;
+    case '1.5':     return `<circle r="310"/>`;
+    case '2':       return `<circle r="290"/>`;
+    case '2.5':     return `<circle r="280"/>`;
+    case '3':       return `<ellipse rx="440" ry="430"/>`;
+    case '12':      return `<ellipse rx="700" ry="440"/>`;
+  }
+}
+// opaque housing drawn around the window (the window itself is cut out with a mask)
+function housingShape(key, W) {
+  const H2 = 500, body = (w, yTop) => `<rect x="${-w / 2}" y="${yTop}" width="${w}" height="${H2 - yTop + 10}" fill="${HOUSING}"/>`;
+  switch (key) {
+    case 'holo':    // EOTech hood: frame + tall body down to the bottom of the screen
+      return `<rect x="-172" y="-158" width="344" height="${H2 + 158}" rx="40" fill="${HOUSING}"/>${body(300, 150)}<rect x="-150" y="-140" width="300" height="280" rx="36" fill="none" stroke="${HOUSING2}" stroke-width="6"/>`;
+    case 'holob':
+      return `<path d="M-150 -150 L150 -150 L175 -70 L185 ${H2 + 10} L-185 ${H2 + 10} L-175 -70 Z" fill="${HOUSING}"/>${body(260, 170)}`;
+    case 'holoru':
+      return `<rect x="-160" y="-160" width="320" height="${H2 + 160}" rx="30" fill="${HOUSING}"/>${body(240, 160)}`;
+    case 'reddot':  // thick tube (outer r 0.46W/2 ≈ 400 at 16:9) + mount
+      return `<circle r="400" fill="${HOUSING}"/><circle r="300" fill="none" stroke="${HOUSING2}" stroke-width="10"/>${body(280, 300)}`;
+    case 'reddotb':
+      return `<circle r="235" fill="${HOUSING}"/>${body(200, 150)}`;
+    case 'reflex':  // thin frame + base block
+      return `<path d="M-120 ${H2 + 10} L-120 -45 Q-120 -140 0 -140 Q120 -140 120 -45 L120 ${H2 + 10} Z" fill="${HOUSING}"/>${body(260, 110)}`;
+    case 'reflexb':
+      return `<path d="M-112 ${H2 + 10} L-112 -55 Q-112 -135 0 -135 Q112 -135 112 -55 L112 ${H2 + 10} Z" fill="${HOUSING}"/>${body(250, 105)}`;
+    case '1.5':
+      return `<circle r="345" fill="${HOUSING}"/><circle r="320" fill="none" stroke="${EDGE}" stroke-width="24"/>${body(230, 280)}`;
+    case '2':
+      return `<circle r="335" fill="${HOUSING}"/><circle r="302" fill="none" stroke="${EDGE}" stroke-width="26"/>${body(230, 280)}`;
+    case '2.5':     // ACOG: big rounded housing with bolts, thick black eyepiece ring inside the glass edge
+      return `<rect x="-430" y="-400" width="860" height="${H2 + 400}" rx="200" fill="${HOUSING}"/><circle r="330" fill="none" stroke="${EDGE}" stroke-width="100"/>${body(240, 300)}`;
+    case '3':
+      return `<ellipse rx="490" ry="480" fill="${HOUSING}"/><ellipse rx="455" ry="445" fill="none" stroke="${EDGE}" stroke-width="32"/>${body(260, 400)}`;
+    case '12':      // CSRX: tan housing fills the whole screen, dark eyepiece ring
+      return `<rect x="${-W / 2}" y="-500" width="${W}" height="1000" fill="#7a6a4e"/><ellipse rx="760" ry="490" fill="#5a4c36"/><ellipse rx="720" ry="460" fill="none" stroke="${EDGE}" stroke-width="44"/>`;
+  }
+}
+function reticleSVG(key, c) {
+  const line = (x1, y1, x2, y2, w = 2, col = c) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/>`;
+  switch (key) {
+    case 'holo':    // circle + dot (≈5% of screen height)
+      return `<g ${glow}><circle r="24" fill="none" stroke="${c}" stroke-width="2.4"/><circle r="3.2" fill="${c}"/>${line(-24, 0, -31, 0, 2)}${line(24, 0, 31, 0, 2)}${line(0, 24, 0, 31, 2)}</g>`;
+    case 'holob':   // "— · —" horizontal dashes with a centre dot
+      return `<g ${glow}>${line(-34, 0, -12, 0, 2.6)}${line(12, 0, 34, 0, 2.6)}<circle r="2.6" fill="${c}"/></g>`;
+    case 'holoru':  // dot with four short ticks
+      return `<g ${glow}><circle r="3" fill="${c}"/>${line(-16, 0, -7, 0, 2)}${line(7, 0, 16, 0, 2)}${line(0, -16, 0, -7, 2)}${line(0, 7, 0, 16, 2)}</g>`;
+    case 'reddot':  return `<circle r="4.2" fill="${c}" ${glow}/>`;
+    case 'reddotb': return `<circle r="3.4" fill="${c}" ${glow}/>`;
+    case 'reflex':  return `<circle r="3.4" fill="${c}" ${glow}/>`;
+    case 'reflexb': return `<path d="M0 -7 L7 6 L-7 6 Z" fill="${c}" ${glow}/>`;
+    case '1.5':     // small circle + post with a dot (as in the in-game 1.5x)
+      return `<g ${glow}><circle r="21" fill="none" stroke="${c}" stroke-width="2.4"/><circle cx="0" cy="36" r="2.4" fill="${c}"/>${line(0, 44, 0, 92, 3.2, '#1a1a1a')}</g>`;
+    case '2':       // fine dark crosshair with a gap, dashed green ring in the centre
+      return `${line(-80, 0, -28, 0, 2.2, '#2a2a2a')}${line(28, 0, 80, 0, 2.2, '#2a2a2a')}${line(0, -80, 0, -28, 2.2, '#2a2a2a')}${line(0, 28, 0, 80, 2.2, '#2a2a2a')}<circle r="18" fill="none" stroke="${c}" stroke-width="2.4" stroke-dasharray="9 7" ${glow}/><circle r="1.8" fill="${c}" ${glow}/>`;
+    case '2.5':     // ACOG: small red chevron, post with range ticks, ball at the bottom
+      return `<g ${glow}><path d="M-14 10 L0 -10 L14 10" fill="none" stroke="${c}" stroke-width="3" stroke-linejoin="miter"/>${line(0, 16, 0, 110, 2.2)}${line(-8, 40, 8, 40, 2)}${line(-7, 62, 7, 62, 2)}${line(-6, 84, 6, 84, 2)}<circle cy="112" r="4" fill="${c}"/></g>`;
+    case '3':       // Mk14-style: grey crosshair with mil ticks, large grey ring, green dot with brackets
+      return `<circle r="300" fill="none" stroke="#2b2b2b" stroke-opacity=".55" stroke-width="7"/>${line(-430, 0, -60, 0, 2.4, '#2b2b2b')}${line(60, 0, 430, 0, 2.4, '#2b2b2b')}${line(0, -430, 0, -60, 2.4, '#2b2b2b')}${line(0, 60, 0, 430, 2.4, '#2b2b2b')}${[110, 170, 230].map(d => line(d, -8, d, 8, 2.2, '#2b2b2b') + line(-d, -8, -d, 8, 2.2, '#2b2b2b') + line(-8, d, 8, d, 2.2, '#2b2b2b') + line(-8, -d, 8, -d, 2.2, '#2b2b2b')).join('')}<path d="M-50 -18 Q-62 0 -50 18 M50 -18 Q62 0 50 18" fill="none" stroke="#2b2b2b" stroke-width="2.4"/>${line(-20, -60, 20, -60, 2.2, '#2b2b2b')}${line(-14, 50, 14, 50, 2.2, '#2b2b2b')}<circle r="2.6" fill="${c}" ${glow}/>`;
+    case '12':      // CSRX 300: thin red crosshair, mil ticks on the horizontal, open centre, black post below
+      return `<g ${glow}>${line(-600, 0, -14, 0, 1.6)}${line(14, 0, 600, 0, 1.6)}${line(0, 14, 0, 230, 1.6)}${[120, 240, 360].map(d => line(d, -14, d, 14, 2) + line(-d, -14, -d, 14, 2)).join('')}</g>${line(-70, 260, 70, 260, 4, '#111')}${line(0, 260, 0, 430, 5, '#111')}`;
   }
   return '';
 }
 function scopeSVG(key, color) {
-  const S = SIGHTS[key]; const aspect = (canvas.clientWidth || 16) / (canvas.clientHeight || 9); const W = 1000 * aspect, H = 1000;
-  const win = S.kind === 'circle'
-    ? `<circle r="${S.r}"/>`
-    : `<rect x="${-S.w / 2}" y="${-S.h / 2}" width="${S.w}" height="${S.h}" rx="${S.rx}"/>`;
-  const frameShape = S.kind === 'circle'
-    ? `<circle r="${S.r + S.frame / 2}" fill="none" stroke="#0a0a0c" stroke-width="${S.frame}"/><circle r="${S.r + 2}" fill="none" stroke="#2a2c30" stroke-width="3"/>`
-    : `<rect x="${-S.w / 2 - S.frame / 2}" y="${-S.h / 2 - S.frame / 2}" width="${S.w + S.frame}" height="${S.h + S.frame}" rx="${S.rx + S.frame / 2}" fill="none" stroke="#0a0a0c" stroke-width="${S.frame}"/><rect x="${-S.w / 2 - 1}" y="${-S.h / 2 - 1}" width="${S.w + 2}" height="${S.h + 2}" rx="${S.rx}" fill="none" stroke="#2a2c30" stroke-width="2.5"/>`;
-  const magnified = S.zoom > 1;
+  const S = SIGHTS[key] || SIGHTS['2.5']; const aspect = (canvas.clientWidth || 16) / (canvas.clientHeight || 9); const W = 1000 * aspect, H = 1000;
+  const win = winShape(key);
   return `<svg viewBox="${-W / 2} ${-H / 2} ${W} ${H}" preserveAspectRatio="xMidYMid slice">
   <defs>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <mask id="hole"><rect x="${-W / 2}" y="${-H / 2}" width="${W}" height="${H}" fill="#fff"/><g fill="#000">${win}</g></mask>
-    <radialGradient id="glass"><stop offset="60%" stop-color="#9fb4d0" stop-opacity="${S.tint}"/><stop offset="100%" stop-color="#000" stop-opacity="${magnified ? 0.55 : 0.25}"/></radialGradient>
+    <radialGradient id="glass"><stop offset="70%" stop-color="#7f93ad" stop-opacity="${S.zoom > 1 ? 0.06 : 0.04}"/><stop offset="100%" stop-color="#000" stop-opacity="${S.zoom > 1 ? 0.45 : 0.18}"/></radialGradient>
   </defs>
-  <rect x="${-W / 2}" y="${-H / 2}" width="${W}" height="${H}" fill="#000" fill-opacity="${S.outside}" mask="url(#hole)"/>
+  <g mask="url(#hole)">${housingShape(key, W)}</g>
   <g fill="url(#glass)">${win}</g>
-  ${frameShape}
   ${reticleSVG(key, color)}
 </svg>`;
 }
