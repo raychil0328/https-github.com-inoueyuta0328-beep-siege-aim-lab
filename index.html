@@ -56,6 +56,11 @@
           <option value="1.35">Hard</option>
           <option value="1.8">Insane</option>
         </select></label>
+        <label>BOT 数（COMBAT） <select id="bots">
+          <option value="auto" selected>自動（モード既定）</option>
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          <option value="5">5</option><option value="6">6</option><option value="8">8</option><option value="10">10</option>
+        </select></label>
         <label>時間 <select id="duration">
           <option value="30">30s</option>
           <option value="60" selected>60s</option>
@@ -119,6 +124,7 @@
         <div class="grid">
           <label>ADS 操作 <select id="adsmode"><option value="hold">ホールド</option><option value="toggle">トグル</option></select></label>
           <label>しゃがみ操作 <select id="crouchmode"><option value="toggle">トグル</option><option value="hold">ホールド</option></select></label>
+          <label>リーン操作 (Q/E) <select id="leanmode"><option value="hold">ホールド（長押し）</option><option value="toggle">トグル（切り替え）</option></select></label>
           <label class="chk"><span>マウス反転</span><input id="invert" type="checkbox"></label>
         </div>
         <div class="note">

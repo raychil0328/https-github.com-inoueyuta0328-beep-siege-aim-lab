@@ -55,7 +55,7 @@ const WEAPON = {
 const settings = {
   dpi: 800, fov: 90, sensH: 10, sensV: 10, msmu: 0.02, xfactor: 0.02,
   ads: { '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 },
-  scope: 2.5, adsmode: 'hold', crouchmode: 'toggle', invert: false,
+  scope: 2.5, adsmode: 'hold', crouchmode: 'toggle', leanmode: 'hold', bots: 'auto', invert: false,
   difficulty: 1, duration: 60, mode: 'cqb',
 };
 const ADS_IDS = { '1': 'ads1', '1.5': 'ads15', '2': 'ads2', '2.5': 'ads25', '3': 'ads3', '12': 'ads12' };
@@ -66,7 +66,7 @@ function loadSettings() {
   settings.ads = Object.assign({ '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 }, settings.ads || {});
   for (const id of SIMPLE_IDS) $(id).value = settings[id];
   for (const k in ADS_IDS) $(ADS_IDS[k]).value = settings.ads[k];
-  $('scope').value = String(settings.scope); $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle';
+  $('scope').value = String(settings.scope); $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle'; $('leanmode').value = settings.leanmode || 'hold'; $('bots').value = String(settings.bots ?? 'auto');
   $('invert').checked = settings.invert;
   $('difficulty').value = String(settings.difficulty); $('duration').value = String(settings.duration);
 }
@@ -78,7 +78,7 @@ function readSettings() {
   settings.msmu = clamp(+$('msmu').value || 0.02, 0.0001, 1);
   settings.xfactor = clamp(+$('xfactor').value || 0.02, 0.0001, 1);
   for (const k in ADS_IDS) settings.ads[k] = clamp(+$(ADS_IDS[k]).value || 50, 1, 100);
-  settings.scope = +$('scope').value; settings.adsmode = $('adsmode').value; settings.crouchmode = $('crouchmode').value; settings.invert = $('invert').checked;
+  settings.scope = +$('scope').value; settings.adsmode = $('adsmode').value; settings.crouchmode = $('crouchmode').value; settings.leanmode = $('leanmode').value; settings.bots = $('bots').value; settings.invert = $('invert').checked;
   settings.difficulty = +$('difficulty').value; settings.duration = +$('duration').value;
   try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {}
   updateSensInfo();
@@ -315,7 +315,7 @@ const game = {
   mode: MODES[0], diff: 1, targets: [], bots: [],
   aimFov: 90, combat: false,
   // player
-  px: 0, pz: 5.5, eyeY: MOVE.eyeStand, crouch: 0, crouchHeld: false, lean: 0, leanTarget: 0, sprint: false, moving: false, speedNow: 0,
+  px: 0, pz: 5.5, eyeY: MOVE.eyeStand, crouch: 0, crouchHeld: false, lean: 0, leanTarget: 0, leanToggle: 0, sprint: false, moving: false, speedNow: 0,
   // weapon
   ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, recoilVis: 0, muzzle: 0, hitMarker: 0, impacts: [],
   visionTimer: 1.5,
@@ -467,7 +467,7 @@ class Bot {
   }
 }
 function spawnBots() {
-  game.bots = []; const m = game.mode; const n = m.bots + (game.diff >= 1.35 ? 1 : 0);
+  game.bots = []; const m = game.mode; const n = settings.bots === 'auto' ? m.bots + (game.diff >= 1.35 ? 1 : 0) : clamp(+settings.bots || 1, 1, 10);
   for (let i = 0; i < n; i++) game.bots.push(new Bot(m.zones[i % m.zones.length]));
 }
 
@@ -495,6 +495,7 @@ window.addEventListener('keydown', (e) => {
   if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ControlLeft', 'KeyC', 'KeyQ', 'KeyE', 'KeyR', 'Tab'].includes(e.code)) e.preventDefault();
   if (e.code === 'KeyR' && game.combat) startReload();
   if (e.code === 'Backspace') startRun();
+  if ((e.code === 'KeyQ' || e.code === 'KeyE') && !e.repeat && settings.leanmode === 'toggle') { const dir = e.code === 'KeyQ' ? 1 : -1; game.leanToggle = game.leanToggle === dir ? 0 : dir; }
   if ((e.code === 'KeyC' || e.code === 'ControlLeft') && !e.repeat) { if (settings.crouchmode === 'toggle') game.crouchHeld = !game.crouchHeld; else game.crouchHeld = true; }
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; if ((e.code === 'KeyC' || e.code === 'ControlLeft') && settings.crouchmode === 'hold') game.crouchHeld = false; });
@@ -509,7 +510,7 @@ async function requestLock() {
 // ---------------------------------------------------------------- player
 function updatePlayer(dt) {
   const crouchT = game.crouchHeld ? 1 : 0; game.crouch += (crouchT - game.crouch) * Math.min(1, dt * MOVE.crouchSpeed);
-  game.leanTarget = (keys.KeyQ ? 1 : 0) - (keys.KeyE ? 1 : 0); game.lean += (game.leanTarget - game.lean) * Math.min(1, dt * MOVE.leanSpeed);
+  game.leanTarget = settings.leanmode === 'toggle' ? game.leanToggle : (keys.KeyQ ? 1 : 0) - (keys.KeyE ? 1 : 0); game.lean += (game.leanTarget - game.lean) * Math.min(1, dt * MOVE.leanSpeed);
   game.eyeY = MOVE.eyeStand + (MOVE.eyeCrouch - MOVE.eyeStand) * game.crouch;
   // movement (R6S: no acceleration, sprint only forward, ADS slows, crouch slows)
   let fx = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), sx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
@@ -593,7 +594,7 @@ function startRun() {
   readSettings();
   game.mode = MODES.find(m => m.id === selectedMode); game.diff = settings.difficulty; game.combat = game.mode.group === 'combat';
   Object.assign(game, { t: 0, timeLeft: settings.duration, onTargetTime: 0, fireTime: 0, score: 0, hitStreak: 0, shots: 0, hits: 0, headshots: 0, kills: 0, damage: 0,
-    ads: false, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5.5, crouchHeld: false, crouch: 0, lean: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0 });
+    ads: false, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5.5, crouchHeld: false, crouch: 0, lean: 0, leanToggle: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0 });
   input.dx = input.dy = 0; fps.sum = 0; fps.n = 0;
   buildMap(); game.targets = []; game.bots = [];
   if (game.combat) spawnBots(); else spawnTargets();
@@ -729,7 +730,7 @@ function frame(now) {
 // ---------------------------------------------------------------- boot
 loadSettings(); selectedMode = MODES.some(m => m.id === settings.mode) ? settings.mode : 'cqb';
 buildMap(); buildModeList(); updateSensInfo(); showBest();
-for (const id of [...SIMPLE_IDS, 'scope', 'adsmode', 'crouchmode', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
+for (const id of [...SIMPLE_IDS, 'scope', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
 for (const id of ['difficulty', 'duration']) $(id).addEventListener('change', () => { readSettings(); showBest(); });
 $('start').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('again').addEventListener('click', async () => { startRun(); await requestLock(); });
