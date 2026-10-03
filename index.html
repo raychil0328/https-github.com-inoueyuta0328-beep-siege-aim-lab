@@ -57,6 +57,12 @@
           <option value="1.35">Hard</option>
           <option value="1.8">Insane</option>
         </select></label>
+        <label>マップ（COMBAT） <select id="map">
+          <option value="hall">トレーニングホール</option>
+          <option value="clubhouse">クラブハウス 地下（概略）</option>
+          <option value="oregon">オレゴン 地下（概略）</option>
+          <option value="bank">バンク 地下（概略）</option>
+        </select></label>
         <label>BOT 数（COMBAT） <select id="bots">
           <option value="auto" selected>自動（モード既定）</option>
           <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
@@ -138,6 +144,15 @@
           <label>ADS 操作 <select id="adsmode"><option value="hold">ホールド</option><option value="toggle">トグル</option></select></label>
           <label>しゃがみ操作 <select id="crouchmode"><option value="toggle">トグル</option><option value="hold">ホールド</option></select></label>
           <label>リーン操作 (Q/E) <select id="leanmode"><option value="hold">ホールド（長押し）</option><option value="toggle">トグル（切り替え）</option></select></label>
+          <label>リコイル強度 <select id="recoil">
+            <option value="0">なし</option>
+            <option value="0.5">弱 (×0.5)</option>
+            <option value="0.75">やや弱 (×0.75)</option>
+            <option value="1" selected>標準 (×1.0)</option>
+            <option value="1.25">やや強 (×1.25)</option>
+            <option value="1.5">強 (×1.5)</option>
+            <option value="2">非常に強 (×2.0)</option>
+          </select></label>
           <label>弾薬 <select id="ammomode"><option value="mag">30 発 + リロード</option><option value="infinite">無限（リロードなし）</option></select></label>
           <label class="chk"><span>マウス反転</span><input id="invert" type="checkbox"></label>
         </div>

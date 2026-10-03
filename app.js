@@ -55,7 +55,7 @@ const WEAPON = {
 const settings = {
   dpi: 800, fov: 90, sensH: 10, sensV: 10, msmu: 0.02, xfactor: 0.02,
   ads: { '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 },
-  scope: 2.5, sight: '2.5', reticle: '#ff2b2b', ammomode: 'mag', adsmode: 'hold', crouchmode: 'toggle', leanmode: 'hold', bots: 'auto', invert: false,
+  scope: 2.5, sight: '2.5', reticle: '#ff2b2b', ammomode: 'mag', adsmode: 'hold', crouchmode: 'toggle', leanmode: 'hold', bots: 'auto', map: 'hall', recoil: 1, invert: false,
   difficulty: 1, duration: 60, mode: 'cqb',
 };
 const ADS_IDS = { '1': 'ads1', '1.5': 'ads15', '2': 'ads2', '2.5': 'ads25', '3': 'ads3', '12': 'ads12' };
@@ -66,7 +66,7 @@ function loadSettings() {
   settings.ads = Object.assign({ '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 }, settings.ads || {});
   for (const id of SIMPLE_IDS) $(id).value = settings[id];
   for (const k in ADS_IDS) $(ADS_IDS[k]).value = settings.ads[k];
-  $('sight').value = settings.sight || '2.5'; $('reticle').value = settings.reticle || '#ff2b2b'; $('ammomode').value = settings.ammomode || 'mag'; $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle'; $('leanmode').value = settings.leanmode || 'hold'; $('bots').value = String(settings.bots ?? 'auto');
+  $('sight').value = settings.sight || '2.5'; $('reticle').value = settings.reticle || '#ff2b2b'; $('ammomode').value = settings.ammomode || 'mag'; $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle'; $('leanmode').value = settings.leanmode || 'hold'; $('bots').value = String(settings.bots ?? 'auto'); $('map').value = MAPS[settings.map] ? settings.map : 'hall'; $('recoil').value = String(settings.recoil ?? 1);
   $('invert').checked = settings.invert;
   $('difficulty').value = String(settings.difficulty); $('duration').value = String(settings.duration);
 }
@@ -78,7 +78,7 @@ function readSettings() {
   settings.msmu = clamp(+$('msmu').value || 0.02, 0.0001, 1);
   settings.xfactor = clamp(+$('xfactor').value || 0.02, 0.0001, 1);
   for (const k in ADS_IDS) settings.ads[k] = clamp(+$(ADS_IDS[k]).value || 50, 1, 100);
-  settings.sight = $('sight').value; settings.scope = SIGHTS[settings.sight].zoom; settings.reticle = $('reticle').value; settings.ammomode = $('ammomode').value; settings.adsmode = $('adsmode').value; settings.crouchmode = $('crouchmode').value; settings.leanmode = $('leanmode').value; settings.bots = $('bots').value; settings.invert = $('invert').checked;
+  settings.sight = $('sight').value; settings.scope = SIGHTS[settings.sight].zoom; settings.reticle = $('reticle').value; settings.ammomode = $('ammomode').value; settings.adsmode = $('adsmode').value; settings.crouchmode = $('crouchmode').value; settings.leanmode = $('leanmode').value; settings.bots = $('bots').value; settings.map = $('map').value; settings.recoil = +$('recoil').value; settings.invert = $('invert').checked;
   settings.difficulty = +$('difficulty').value; settings.duration = +$('duration').value;
   try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {}
   updateSensInfo();
@@ -230,39 +230,160 @@ function draw(mesh, model, color, grid = 0, emis = 0) {
   gl.bindVertexArray(mesh.vao); gl.drawElements(gl.TRIANGLES, mesh.n, gl.UNSIGNED_SHORT, 0);
 }
 
-// ---------------------------------------------------------------- map
-const ROOM = { xmin: -12, xmax: 12, zmin: -52, zmax: 10, h: 5 };
-// props: axis-aligned boxes {x,z,w,d,h,kind}  (y from 0 to h). kind: crate | wall | pillar
+// ---------------------------------------------------------------- maps
+// props: axis-aligned boxes {x,z,w,d,h,kind} (y from 0 to h). kind: crate | wall | pillar | furniture
+let ROOM = { xmin: -12, xmax: 12, zmin: -52, zmax: 10, h: 5 };
 const PROPS = [];
+const DOORS = [];   // {x,z,axis:'x'|'z'} doorway centers (for bot door-peek spots)
+let MAP = null;
 function addProp(x, z, w, d, h, kind = 'crate') { PROPS.push({ x, z, w, d, h, kind, xmin: x - w / 2, xmax: x + w / 2, zmin: z - d / 2, zmax: z + d / 2 }); }
-function buildMap() {
-  PROPS.length = 0;
-  // player zone (z -1..9): cover for the shooter — break line of sight, then peek
-  addProp(-5.5, -0.6, 7.0, 0.4, 2.4, 'wall');   // left wall segment  (doorway between x -2.0 .. 1.0)
-  addProp(4.5, -0.6, 7.0, 0.4, 2.4, 'wall');    // right wall segment (side gaps at |x| > 9)
-  addProp(-3.0, 2.4, 1.6, 1.6, 1.2);            // low crates for head peeks
-  addProp(3.2, 2.0, 1.6, 1.6, 1.2);
-  addProp(-8.5, 4.5, 1.2, 1.2, 2.0, 'pillar');
-  addProp(8.5, 4.0, 1.2, 1.2, 2.0, 'pillar');
-  addProp(0, 7.5, 1.2, 1.2, 0.9);
-  // near zone (z -12..-2)
-  addProp(-6, -5, 1.6, 1.6, 1.2); addProp(6, -6, 1.6, 1.6, 1.2); addProp(0, -9, 3.0, 1.0, 2.2, 'wall');
-  addProp(-9, -10, 1.2, 1.2, 1.2); addProp(9, -11, 1.2, 1.2, 2.0, 'pillar'); addProp(-2.5, -3, 1.2, 1.2, 0.9);
-  // mid zone (z -28..-14)
-  addProp(-7, -17, 2.0, 1.0, 2.2, 'wall'); addProp(7, -19, 2.0, 1.0, 2.2, 'wall'); addProp(0, -22, 1.6, 1.6, 1.2);
-  addProp(-3.5, -26, 1.6, 1.6, 1.2); addProp(4, -25, 1.2, 1.2, 2.0, 'pillar'); addProp(-10, -22, 1.6, 1.6, 1.2); addProp(10, -27, 1.6, 1.6, 1.2);
-  // far zone (z -50..-32)
-  addProp(-5, -35, 2.4, 1.0, 2.2, 'wall'); addProp(6, -38, 1.6, 1.6, 1.2); addProp(0, -42, 1.6, 1.6, 1.2);
-  addProp(-8, -45, 1.2, 1.2, 2.0, 'pillar'); addProp(8, -47, 2.4, 1.0, 2.2, 'wall'); addProp(-2, -49, 1.6, 1.6, 1.2);
+// wall along x (z fixed) from x1..x2, or along z (x fixed) from z1..z2, with door gaps [[a,b],...] in the running coordinate
+function wallX(z, x1, x2, doors = [], h = ROOM.h, t = 0.4) {
+  for (const [a, b] of cut(x1, x2, doors)) addProp((a + b) / 2, z, b - a, t, h, 'wall');
+  for (const [a, b] of doors) DOORS.push({ x: (a + b) / 2, z, axis: 'x' });
 }
-const ZONES = { near: { zmin: -12, zmax: -2 }, mid: { zmin: -28, zmax: -14 }, far: { zmin: -50, zmax: -32 } };
+function wallZ(x, z1, z2, doors = [], h = ROOM.h, t = 0.4) {
+  for (const [a, b] of cut(z1, z2, doors)) addProp(x, (a + b) / 2, t, b - a, h, 'wall');
+  for (const [a, b] of doors) DOORS.push({ x, z: (a + b) / 2, axis: 'z' });
+}
+function cut(a, b, doors) { const out = []; let cur = Math.min(a, b); const end = Math.max(a, b); for (const [d0, d1] of [...doors].sort((p, q) => p[0] - q[0])) { if (d0 > cur) out.push([cur, d0]); cur = Math.max(cur, d1); } if (end > cur) out.push([cur, end]); return out.filter(([x, y]) => y - x > 0.05); }
+const R = (xmin, xmax, zmin, zmax) => ({ xmin, xmax, zmin, zmax });
+
+const MAPS = {
+  hall: {
+    name: 'トレーニングホール', room: { xmin: -12, xmax: 12, zmin: -52, zmax: 10, h: 5 },
+    spawn: { x: 0, z: 5.5, yaw: 0 },
+    zones: { near: [R(-12, 12, -12, -2)], mid: [R(-12, 12, -28, -14)], far: [R(-12, 12, -50, -32)] },
+    build() {
+      addProp(-5.5, -0.6, 7.0, 0.4, 2.4, 'wall'); addProp(4.5, -0.6, 7.0, 0.4, 2.4, 'wall');
+      DOORS.push({ x: -0.5, z: -0.6, axis: 'x' });
+      addProp(-3.0, 2.4, 1.6, 1.6, 1.2); addProp(3.2, 2.0, 1.6, 1.6, 1.2); addProp(-8.5, 4.5, 1.2, 1.2, 2.0, 'pillar'); addProp(8.5, 4.0, 1.2, 1.2, 2.0, 'pillar'); addProp(0, 7.5, 1.2, 1.2, 0.9);
+      addProp(-6, -5, 1.6, 1.6, 1.2); addProp(6, -6, 1.6, 1.6, 1.2); addProp(0, -9, 3.0, 1.0, 2.2, 'wall'); addProp(-9, -10, 1.2, 1.2, 1.2); addProp(9, -11, 1.2, 1.2, 2.0, 'pillar'); addProp(-2.5, -3, 1.2, 1.2, 0.9);
+      addProp(-7, -17, 2.0, 1.0, 2.2, 'wall'); addProp(7, -19, 2.0, 1.0, 2.2, 'wall'); addProp(0, -22, 1.6, 1.6, 1.2); addProp(-3.5, -26, 1.6, 1.6, 1.2); addProp(4, -25, 1.2, 1.2, 2.0, 'pillar'); addProp(-10, -22, 1.6, 1.6, 1.2); addProp(10, -27, 1.6, 1.6, 1.2);
+      addProp(-5, -35, 2.4, 1.0, 2.2, 'wall'); addProp(6, -38, 1.6, 1.6, 1.2); addProp(0, -42, 1.6, 1.6, 1.2); addProp(-8, -45, 1.2, 1.2, 2.0, 'pillar'); addProp(8, -47, 2.4, 1.0, 2.2, 'wall'); addProp(-2, -49, 1.6, 1.6, 1.2);
+    },
+  },
+  // ---- Clubhouse basement (schematic): Garage / Church / Arsenal / Gym / Basement Hallway / Red & Blue Stairs ----
+  clubhouse: {
+    name: 'クラブハウス 地下', room: { xmin: -18, xmax: 18, zmin: -22, zmax: 6, h: 3.2 },
+    spawn: { x: 5, z: 4.2, yaw: 0 },   // basement entrance (south), looking north into Arsenal
+    zones: { near: [R(0, 10, -8, 6)], mid: [R(-10, 10, -12, 4)], far: [R(-18, -4, -22, -8), R(10, 18, -22, 2)] },
+    build() {
+      wallX(-8, -18, 0, [[-7.6, -6.4]]);                     // Garage south wall (door -> Church)
+      wallZ(-4, -22, -8, [[-11.4, -10.2]]);                  // Garage east wall (door -> Hallway)
+      wallZ(0, -22, -12);                                    // Red stairs east wall
+      wallX(-12, -4, 0, [[-2.6, -1.4]]);                     // Red stairs -> Hallway
+      wallX(-8, 0, 10, [[-2.6, -1.4], [4.4, 5.6]]);          // Hallway south wall (doors -> Church, Arsenal)
+      wallX(-12, 0, 10);                                     // Hallway north wall
+      wallZ(0, -8, 4, [[-3.6, -2.4]]);                       // Church | Arsenal (door)
+      wallX(0, 0, 10, [[4.4, 5.6]]);                         // Arsenal south wall (door -> Entrance)
+      wallZ(10, -22, 2, [[-10.6, -9.4], [-4.6, -3.4]]);      // Gym west wall (doors -> Hallway, Arsenal)
+      wallX(-14, 10, 18, [[13.4, 14.6]]);                    // Gym | Blue stairs
+      wallX(4, -10, 0); wallZ(-10, -8, 4);                   // Church south / west walls
+      wallX(2, 10, 18);                                      // Gym south wall
+      wallX(6, 0, 10); wallZ(0, 0, 6); wallZ(10, 0, 6);      // Entrance room
+      // Garage: two cars, workbench, tool chest
+      addProp(-13, -13.5, 2.0, 4.6, 1.5, 'furniture'); addProp(-8.5, -17.5, 2.0, 4.6, 1.5, 'furniture');
+      addProp(-16.5, -20, 2.4, 0.8, 1.0); addProp(-6, -11, 1.2, 0.8, 1.0); addProp(-16, -9.5, 1.6, 1.2, 1.2);
+      addProp(-2, -19, 3.4, 5.0, 1.6, 'furniture');          // Red stairs block
+      for (let i = 0; i < 4; i++) { addProp(-7.3, -5.5 + i * 2.2, 3.6, 0.5, 0.95, 'furniture'); addProp(-2.7, -5.5 + i * 2.2, 3.6, 0.5, 0.95, 'furniture'); } // pews
+      addProp(-5, 3.0, 4.0, 1.2, 0.9, 'furniture'); addProp(-9.2, -6.8, 1.0, 1.0, 1.2);   // altar, crate
+      addProp(9.3, -5.5, 0.8, 2.6, 2.0, 'furniture'); addProp(9.3, -1.5, 0.8, 2.0, 2.0, 'furniture'); // gun racks
+      addProp(3, -4, 1.6, 1.6, 1.2); addProp(6.5, -2, 1.2, 1.2, 0.9); addProp(2, -1, 2.0, 0.9, 0.9, 'furniture');
+      addProp(7.5, -11.5, 2.4, 0.6, 2.0, 'furniture'); addProp(1.5, -11.3, 1.2, 1.0, 1.2);  // hallway lockers
+      addProp(13, -9, 0.7, 2.0, 0.6, 'furniture'); addProp(16, -9, 0.7, 2.0, 0.6, 'furniture'); addProp(17.2, -4, 0.8, 3.0, 1.6, 'furniture'); // gym
+      addProp(12.5, -3, 0.6, 0.6, 2.4, 'pillar'); addProp(14.5, 0, 2.4, 1.6, 0.5, 'furniture'); addProp(11.5, -12.5, 1.2, 1.2, 1.2);
+      addProp(16, -19, 3.4, 5.0, 1.6, 'furniture');          // Blue stairs block
+      addProp(2, 3.5, 1.4, 1.4, 1.2); addProp(8.3, 2.5, 1.2, 1.2, 0.9);  // entrance crates
+    },
+  },
+  // ---- Oregon basement (schematic): Laundry / Supply / Blue Bunker / Freezer / Electric / Basement Corridor / Tower stairs ----
+  oregon: {
+    name: 'オレゴン 地下', room: { xmin: -16, xmax: 16, zmin: -20, zmax: 6, h: 3.2 },
+    spawn: { x: 14.8, z: 4.6, yaw: -0.45 },
+    zones: { near: [R(0, 16, -8, 6)], mid: [R(-8, 8, -14, 0)], far: [R(-16, -4, -20, -2), R(-6, 10, -20, -12)] },
+    build() {
+      wallZ(0, -8, 6, [[-1.6, -0.4], [3.4, 4.6]]);                        // Supply | Laundry
+      wallX(-8, -16, 16, [[-5.6, -4.4], [3.4, 4.6], [10.4, 11.6]]);       // corridor south wall
+      wallX(-12, -16, 16, [[-13.6, -12.4], [-3.6, -2.4], [6.4, 7.6]]);    // corridor north wall
+      wallZ(-8, -8, 6, [[-4.6, -3.4]]);                                   // Supply | Blue bunker
+      wallZ(8, -8, 6, [[0.4, 1.6]]);                                      // Laundry | Tower stairs
+      wallZ(-6, -20, -12); wallZ(4, -20, -12, [[-17.6, -16.4]]);          // Freezer walls
+      wallX(-16, -6, 4, [[-1.6, -0.4]]);                                  // Freezer entry
+      addProp(-12.5, 2, 3.0, 0.8, 2.0, 'furniture'); addProp(-10, -4, 1.6, 1.6, 1.2); addProp(-14, -5.5, 1.4, 1.4, 1.0);   // blue bunker
+      addProp(-4, 3, 4.0, 0.8, 2.0, 'furniture'); addProp(-2, -3, 1.6, 1.6, 1.2); addProp(-6, -5, 1.2, 1.2, 0.9); addProp(-5.5, 0.5, 1.0, 1.0, 1.0, 'pillar'); // supply
+      addProp(1.2, 4.6, 0.8, 2.4, 1.0, 'furniture'); addProp(4, 2, 2.4, 1.0, 0.9, 'furniture'); addProp(6, -4, 1.4, 1.4, 1.2); addProp(2.5, -5.5, 1.2, 1.2, 0.9); // laundry
+      addProp(12.5, 1, 3.0, 4.0, 1.6, 'furniture'); addProp(14, -5, 1.2, 1.2, 1.2);          // tower stairs
+      addProp(-10, -10, 1.2, 1.0, 1.2); addProp(9, -10.3, 2.0, 0.6, 2.0, 'furniture');      // corridor
+      addProp(-1, -15, 1.6, 1.6, 1.2); addProp(2.5, -18, 2.4, 0.8, 1.6, 'furniture'); addProp(-11, -16, 1.6, 1.0, 1.4, 'furniture'); addProp(8, -16, 1.6, 1.6, 1.2); addProp(13, -17, 1.2, 1.2, 1.0); // freezer / electric
+    },
+  },
+  // ---- Bank basement (schematic): Lockers / CCTV / Server / Gold Vault / Main stairs / Garage ramp ----
+  bank: {
+    name: 'バンク 地下', room: { xmin: -16, xmax: 16, zmin: -20, zmax: 6, h: 3.2 },
+    spawn: { x: -11, z: 4, yaw: -0.4 },
+    zones: { near: [R(-16, -2, -8, 6)], mid: [R(-6, 10, -12, 2)], far: [R(2, 16, -20, -6), R(-16, 0, -20, -10)] },
+    build() {
+      wallX(-8, -16, 16, [[-13.6, -12.4], [-3.6, -2.4], [6.4, 7.6]]);     // main corridor south wall
+      wallX(-12, -16, 16, [[-9.6, -8.4], [1.4, 2.6], [11.4, 12.6]]);      // main corridor north wall
+      wallZ(-2, -8, 6, [[1.4, 2.6]]);                                     // Garage ramp | Lockers
+      wallZ(10, -8, 6, [[-5.6, -4.4]]);                                   // Lockers | CCTV
+      wallZ(2, -20, -12, [[-17.6, -16.4]]);                               // Server | Vault
+      wallZ(-8, -20, -12);                                                // Main stairs | Server
+      addProp(-9, -4, 3.0, 5.0, 1.4, 'furniture'); addProp(-14, -5, 0.8, 0.8, 3.2, 'pillar'); addProp(-4, 3, 1.4, 1.4, 1.2);   // garage ramp
+      addProp(0, -4, 0.6, 3.0, 2.0, 'furniture'); addProp(4, -4, 0.6, 3.0, 2.0, 'furniture'); addProp(8, -1, 0.6, 3.0, 2.0, 'furniture'); addProp(2, 2.5, 2.0, 0.5, 0.5, 'furniture'); addProp(6, -6.5, 1.2, 1.2, 1.0); // lockers
+      addProp(13, 0, 2.0, 1.0, 0.9, 'furniture'); addProp(15.3, -4, 0.8, 2.4, 2.0, 'furniture'); addProp(12, -5.5, 1.2, 1.2, 1.2);   // CCTV
+      addProp(-6, -10, 0.8, 0.8, 3.2, 'pillar'); addProp(6, -10, 0.8, 0.8, 3.2, 'pillar'); addProp(0, -10.5, 1.2, 1.0, 1.2);     // corridor
+      addProp(-3.5, -15, 0.8, 3.0, 2.0, 'furniture'); addProp(-0.5, -15, 0.8, 3.0, 2.0, 'furniture'); addProp(-5.5, -18.5, 1.6, 1.0, 1.2); // server racks
+      addProp(9, -14, 1.6, 1.6, 1.2); addProp(13, -16.5, 1.8, 1.2, 1.0, 'furniture'); addProp(5, -17.5, 1.4, 1.4, 1.0); addProp(14.5, -13, 0.8, 0.8, 3.2, 'pillar'); // vault
+      addProp(-12, -17, 3.4, 4.0, 1.6, 'furniture'); addProp(-14.5, -13, 1.2, 1.2, 1.0);   // main stairs
+    },
+  },
+};
+function buildMap(key) {
+  MAP = MAPS[key] || MAPS.hall; PROPS.length = 0; DOORS.length = 0;
+  ROOM = { ...MAP.room };
+  MAP.build();
+}
+function inZone(x, z, zone) { return (MAP.zones[zone] || []).some(r => x >= r.xmin && x <= r.xmax && z >= r.zmin && z <= r.zmax); }
+function posFree(x, z, r) { const [cx, cz] = collide(x, z, r); return Math.hypot(cx - x, cz - z) < 0.02; }
+// cover spots: hide behind props (away from player spawn) + door-frame peeks
 function coverSpots(zone) {
-  const z = ZONES[zone]; const spots = [];
-  for (const p of PROPS) if (p.z >= z.zmin && p.z <= z.zmax) {
-    const back = p.zmin - 0.55;           // hide behind (farther from player)
-    spots.push({ hide: [p.x, back], peeks: [[p.xmin - 0.55, back], [p.xmax + 0.55, back]], low: p.h < 1.6, prop: p });
+  const spots = []; const sp = MAP.spawn; const off = 0.6;
+  for (const p of PROPS) {
+    if (p.kind === 'wall' || !inZone(p.x, p.z, zone)) continue;
+    const dx = p.x - sp.x, dz = p.z - sp.z;
+    let hide, peeks;
+    if (Math.abs(dz) >= Math.abs(dx)) { const s2 = Math.sign(dz) || -1; const hz = p.z + s2 * (p.d / 2 + off); hide = [p.x, hz]; peeks = [[p.xmin - off, hz], [p.xmax + off, hz]]; }
+    else { const s2 = Math.sign(dx) || 1; const hx = p.x + s2 * (p.w / 2 + off); hide = [hx, p.z]; peeks = [[hx, p.zmin - off], [hx, p.zmax + off]]; }
+    if (!posFree(hide[0], hide[1], BOT.r)) continue;
+    peeks = peeks.filter(q => posFree(q[0], q[1], BOT.r)); if (!peeks.length) continue;
+    spots.push({ hide, peeks, low: p.h < 1.6, prop: p });
+  }
+  for (const d of DOORS) {
+    if (!inZone(d.x, d.z, zone)) continue;
+    const away = d.axis === 'x' ? [0, Math.sign(d.z - sp.z) || -1] : [Math.sign(d.x - sp.x) || 1, 0];
+    const lat = d.axis === 'x' ? [1, 0] : [0, 1];
+    for (const sgn of [1, -1]) {
+      const hide = [d.x + away[0] * 1.0 + lat[0] * sgn * 1.3, d.z + away[1] * 1.0 + lat[1] * sgn * 1.3];
+      const peek = [d.x + away[0] * 0.9 + lat[0] * sgn * 0.25, d.z + away[1] * 0.9 + lat[1] * sgn * 0.25];
+      if (posFree(hide[0], hide[1], BOT.r) && posFree(peek[0], peek[1], BOT.r)) spots.push({ hide, peeks: [peek], low: false, prop: d });
+    }
   }
   return spots;
+}
+// 2D segment vs props (inflated by r): true if blocked
+function segBlocked(ax, az, bx, bz, r = BOT.r) {
+  const dx = bx - ax, dz = bz - az;
+  for (const p of PROPS) {
+    let t0 = 0, t1 = 1, ok = true;
+    for (const [o, d, mn, mx] of [[ax, dx, p.xmin - r, p.xmax + r], [az, dz, p.zmin - r, p.zmax + r]]) {
+      if (Math.abs(d) < 1e-9) { if (o < mn || o > mx) { ok = false; break; } continue; }
+      let ta = (mn - o) / d, tb = (mx - o) / d; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) { ok = false; break; }
+    }
+    if (ok) return true;
+  }
+  return false;
 }
 // movement collision: circle (x,z,r) vs props & room; returns corrected position
 function collide(x, z, r) {
@@ -323,7 +444,7 @@ const game = {
 const COLORS = {
   body: [0.82, 0.84, 0.86], bodyHit: [1.0, 0.72, 0.25], head: [0.95, 0.35, 0.25], dead: [0.35, 0.15, 0.12],
   active: [1.0, 0.62, 0.1], inactive: [0.42, 0.48, 0.56], wall: [0.42, 0.44, 0.48],
-  crate: [0.55, 0.42, 0.25], propwall: [0.5, 0.52, 0.56], pillar: [0.46, 0.48, 0.52],
+  crate: [0.55, 0.42, 0.25], propwall: [0.5, 0.52, 0.56], furniture: [0.36, 0.40, 0.46], pillar: [0.46, 0.48, 0.52],
   gun: [0.16, 0.17, 0.19], gun2: [0.24, 0.25, 0.28], flash: [1.0, 0.85, 0.5], spark: [1.0, 0.7, 0.3],
 };
 
@@ -397,7 +518,8 @@ const BOT = { r: 0.28, hh: 0.55, headR: 0.16, hp: 100, walk: 3.1, sprint: 5.3, c
 class Bot {
   constructor(zone) { this.zone = zone; this.spawn(); }
   spawn() {
-    const spots = coverSpots(this.zone); this.spot = pick(spots);
+    let spots = coverSpots(this.zone); if (!spots.length) for (const z of Object.keys(MAP.zones)) { spots = coverSpots(z); if (spots.length) { this.zone = z; break; } }
+    this.spot = pick(spots);
     this.x = this.spot.hide[0]; this.z = this.spot.hide[1]; this.hp = BOT.hp; this.dead = 0; this.alive = true;
     this.crouch = this.spot.low ? 1 : 0; this.crouchT = this.crouch; this.lean = 0; this.leanT = 0; this.flash = 0;
     this.state = 'hide'; this.timer = rand(0.3, 1.0); this.dest = null; this.sprint = false;
@@ -422,8 +544,9 @@ class Bot {
           } else if (r < 0.8 && this.spot.low) { // stand up over low cover (head peek)
             this.state = 'headpeek'; this.crouchT = 0; this.timer = rand(0.35, 0.9) / D;
           } else { // relocate to another cover (walk or sprint)
-            const spots = coverSpots(this.zone).filter(s => s.prop !== this.spot.prop); this.spot = pick(spots); this.dest = this.spot.hide;
-            this.state = 'move'; this.sprint = Math.random() < 0.55; this.crouchT = 0; this.leanT = 0;
+            const spots = coverSpots(this.zone).filter(s => s.prop !== this.spot.prop && !segBlocked(this.x, this.z, s.hide[0], s.hide[1]));
+            if (spots.length) { this.spot = pick(spots); this.dest = this.spot.hide; this.state = 'move'; this.sprint = Math.random() < 0.55; this.crouchT = 0; this.leanT = 0; }
+            else this.timer = rand(0.3, 0.8) / D;
           }
         }
         break;
@@ -510,12 +633,14 @@ async function requestLock() {
 // ---------------------------------------------------------------- player
 function updatePlayer(dt) {
   const crouchT = game.crouchHeld ? 1 : 0; game.crouch += (crouchT - game.crouch) * Math.min(1, dt * MOVE.crouchSpeed);
-  game.leanTarget = settings.leanmode === 'toggle' ? game.leanToggle : (keys.KeyQ ? 1 : 0) - (keys.KeyE ? 1 : 0); game.lean += (game.leanTarget - game.lean) * Math.min(1, dt * MOVE.leanSpeed);
   game.eyeY = MOVE.eyeStand + (MOVE.eyeCrouch - MOVE.eyeStand) * game.crouch;
   // movement (R6S: no acceleration, sprint only forward, ADS slows, crouch slows)
   let fx = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), sx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
   game.sprint = !!keys.ShiftLeft && fx > 0 && !game.ads && game.crouch < 0.5;
   game.moving = fx !== 0 || sx !== 0;
+  game.leanTarget = settings.leanmode === 'toggle' ? game.leanToggle : (keys.KeyQ ? 1 : 0) - (keys.KeyE ? 1 : 0);
+  if (game.sprint) { game.leanTarget = 0; game.leanToggle = 0; }   // Siege: sprinting cancels lean
+  game.lean += (game.leanTarget - game.lean) * Math.min(1, dt * MOVE.leanSpeed);
   let speed = game.sprint ? MOVE.sprint : MOVE.walk;
   if (game.crouch > 0.5) speed = MOVE.crouch;
   if (game.ads) speed *= MOVE.adsMul;
@@ -558,7 +683,7 @@ function fireShot(eye, view) {
     const t = Math.min(tProp, WEAPON.range); game.impacts.push({ p: [eye[0] + d[0] * t, eye[1] + d[1] * t, eye[2] + d[2] * t], t: 0.06, c: [0.8, 0.8, 0.8] });
   }
   // recoil: moves the actual view (no auto recovery, as in Siege)
-  const rc = WEAPON.recoil(Math.floor(game.shotIdx)); game.shotIdx++; game.pitch += rc.v * DEG; game.yaw += rc.h * DEG;
+  const rc = WEAPON.recoil(Math.floor(game.shotIdx)); game.shotIdx++; game.pitch += rc.v * DEG * settings.recoil; game.yaw += rc.h * DEG * settings.recoil;
   if (game.ammo <= 0) startReload();
 }
 function updateWeapon(dt, eye, view) {
@@ -596,11 +721,12 @@ function startRun() {
   Object.assign(game, { t: 0, timeLeft: settings.duration, onTargetTime: 0, fireTime: 0, score: 0, hitStreak: 0, shots: 0, hits: 0, headshots: 0, kills: 0, damage: 0,
     ads: false, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5.5, crouchHeld: false, crouch: 0, lean: 0, leanToggle: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0 });
   input.dx = input.dy = 0; fps.sum = 0; fps.n = 0;
-  buildMap(); game.targets = []; game.bots = [];
+  buildMap(game.combat ? settings.map : 'hall'); game.targets = []; game.bots = [];
+  game.px = MAP.spawn.x; game.pz = MAP.spawn.z; game.yaw = MAP.spawn.yaw;
   if (game.combat) spawnBots(); else spawnTargets();
   game.running = true;
   $('menu').classList.add('hidden'); $('results').classList.add('hidden'); $('hud').classList.remove('hidden');
-  $('h-mode').textContent = game.mode.name;
+  $('h-mode').textContent = game.mode.name + (game.combat ? ' · ' + MAP.name : '');
   const s = sensState();
   $('h-sens').textContent = `${settings.dpi}DPI · H${settings.sensH}/V${settings.sensV} · ${R6.cm360(s.hipYawH, settings.dpi).toFixed(1)}cm/360`;
   $('hud').classList.toggle('combat', game.combat);
@@ -753,7 +879,7 @@ function frame(now) {
   gl.uniformMatrix4fv(U.uProj, false, perspective(game.aimFov, aspect, 0.05, 250));
   gl.uniformMatrix4fv(U.uView, false, view.m); gl.uniform3fv(U.uCam, eye); gl.uniform1f(U.uFog, 1);
   draw(meshRoom, modelTRS((ROOM.xmin + ROOM.xmax) / 2, ROOM.h / 2, (ROOM.zmin + ROOM.zmax) / 2, ROOM.xmax - ROOM.xmin, ROOM.h, ROOM.zmax - ROOM.zmin), COLORS.wall, 2, 0);
-  if (game.combat || !game.running) for (const p of PROPS) draw(meshBox, modelTRS(p.x, p.h / 2, p.z, p.w, p.h, p.d), p.kind === 'crate' ? COLORS.crate : p.kind === 'wall' ? COLORS.propwall : COLORS.pillar, 1, 0);
+  if (game.combat || !game.running) for (const p of PROPS) draw(meshBox, modelTRS(p.x, p.h / 2, p.z, p.w, p.h, p.d), p.kind === 'crate' ? COLORS.crate : p.kind === 'wall' ? COLORS.propwall : p.kind === 'furniture' ? COLORS.furniture : COLORS.pillar, 1, 0);
   for (const T of game.targets) {
     if (T.kind === 'op') {
       const hh = T.hh * (1 - T.crouch * 0.45); const col = T.hit ? COLORS.bodyHit : (T.flash ? [1, 0.9, 0.5] : COLORS.body);
@@ -788,8 +914,8 @@ function frame(now) {
 
 // ---------------------------------------------------------------- boot
 loadSettings(); settings.scope = (SIGHTS[settings.sight] || SIGHTS['2.5']).zoom; selectedMode = MODES.some(m => m.id === settings.mode) ? settings.mode : 'cqb';
-buildMap(); buildModeList(); updateSensInfo(); showBest();
-for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
+buildMap('hall'); buildModeList(); updateSensInfo(); showBest();
+for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'map', 'recoil', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
 for (const id of ['difficulty', 'duration']) $(id).addEventListener('change', () => { readSettings(); showBest(); });
 $('start').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('again').addEventListener('click', async () => { startRun(); await requestLock(); });
