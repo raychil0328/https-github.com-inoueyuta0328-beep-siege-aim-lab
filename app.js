@@ -44,9 +44,9 @@ const WEAPON = {
   range: 120,
   // Siege-style recoil: the view itself climbs and never auto-recovers — you pull down.
   recoil(shot) {
-    const v = shot < 3 ? 0.62 : shot < 8 ? 0.48 : 0.36;              // vertical deg per shot
+    const v = shot < 3 ? 1.24 : shot < 8 ? 0.96 : 0.72;              // vertical deg per shot (2x previous baseline)
     const phase = shot < 4 ? 0 : shot < 11 ? 1 : shot < 19 ? -1 : 1;  // horizontal drift pattern
-    const h = phase * 0.12 + rand(-0.09, 0.09);
+    const h = phase * 0.24 + rand(-0.18, 0.18);
     return { v: v * rand(0.9, 1.1), h };
   },
 };
