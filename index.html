@@ -15,7 +15,8 @@
 <!-- HUD (in-game) -->
 <div id="hud" class="hidden">
   <div id="crosshair"><i></i><i></i><i></i><i></i></div>
-  <div id="scope-ov" class="hidden"><div class="ring"></div><div class="dot"></div><div class="postv"></div><div class="posth"></div></div>
+  <div id="scope-ov" class="hidden"></div>
+  <div id="hitmark"><i></i><i></i></div>
   <div id="hud-top">
     <div class="hud-box"><span class="lbl">TIME</span><span id="h-time">60.0</span></div>
     <div class="hud-box"><span class="lbl">SCORE</span><span id="h-score">0</span></div>
@@ -110,13 +111,25 @@
           <label>12.0x Glaz / Kali <input id="ads12" type="number" min="1" max="100" value="50"></label>
         </div>
         <div class="row">
-          <label>使用サイト <select id="scope">
-            <option value="1">1.0x Holo / Red Dot</option>
+          <label>使用サイト <select id="sight">
+            <option value="holo">1.0x Holo（ホロ）</option>
+            <option value="reddot">1.0x Red Dot（レッドドット）</option>
+            <option value="reflex">1.0x Reflex（リフレックス）</option>
             <option value="1.5">1.5x</option>
             <option value="2">2.0x</option>
             <option value="2.5" selected>2.5x ACOG</option>
             <option value="3">3.0x</option>
-            <option value="12">12.0x</option>
+            <option value="12">12.0x（Glaz / Kali）</option>
+          </select></label>
+          <label>レティクル色 <select id="reticle">
+            <option value="#ff2b2b" selected>赤</option>
+            <option value="#2bff5a">緑</option>
+            <option value="#2b9bff">青</option>
+            <option value="#ffffff">白</option>
+            <option value="#ff4fd8">ピンク</option>
+            <option value="#ffe02b">黄</option>
+            <option value="#2bf0ff">シアン</option>
+            <option value="#ff8c2b">オレンジ</option>
           </select></label>
         </div>
       </div>
@@ -125,6 +138,7 @@
           <label>ADS 操作 <select id="adsmode"><option value="hold">ホールド</option><option value="toggle">トグル</option></select></label>
           <label>しゃがみ操作 <select id="crouchmode"><option value="toggle">トグル</option><option value="hold">ホールド</option></select></label>
           <label>リーン操作 (Q/E) <select id="leanmode"><option value="hold">ホールド（長押し）</option><option value="toggle">トグル（切り替え）</option></select></label>
+          <label>弾薬 <select id="ammomode"><option value="mag">30 発 + リロード</option><option value="infinite">無限（リロードなし）</option></select></label>
           <label class="chk"><span>マウス反転</span><input id="invert" type="checkbox"></label>
         </div>
         <div class="note">

@@ -120,15 +120,11 @@ footer a{color:var(--dim)}
 #hit-flash{position:absolute;inset:0;box-shadow:inset 0 0 0 0 transparent;transition:box-shadow .05s}
 #hit-flash.on{box-shadow:inset 0 0 120px rgba(245,166,35,.18)}
 
-/* Scope overlay */
-#scope-ov{position:absolute;inset:0}
-#scope-ov .ring{position:absolute;left:50%;top:50%;width:58vmin;height:58vmin;margin:-29vmin 0 0 -29vmin;border-radius:50%;
-  box-shadow:0 0 0 200vmax rgba(0,0,0,.82),inset 0 0 40px rgba(0,0,0,.9);border:3px solid #111}
-#scope-ov.holo .ring{width:70vmin;height:70vmin;margin:-35vmin 0 0 -35vmin;box-shadow:0 0 0 200vmax rgba(0,0,0,.55),inset 0 0 30px rgba(0,0,0,.6)}
-#scope-ov .dot{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:#ff2a2a;box-shadow:0 0 6px #f33}
-#scope-ov .postv,#scope-ov .posth{position:absolute;left:50%;top:50%;background:#111}
-#scope-ov .postv{width:3px;height:29vmin;margin-left:-1.5px;margin-top:4vmin}
-#scope-ov .posth{display:none}
-#scope-ov.acog .posth{display:block;width:58vmin;height:2px;margin:-1px 0 0 -29vmin}
-#scope-ov.holo .postv,#scope-ov.holo .posth{display:none}
-#scope-ov.holo .dot{width:4px;height:4px;box-shadow:0 0 0 10px transparent,0 0 0 11px rgba(255,40,40,.9),0 0 8px #f33}
+/* Scope overlay (SVG built in app.js) */
+#scope-ov{position:absolute;inset:0;overflow:hidden}
+#scope-ov svg{position:absolute;inset:0;width:100%;height:100%}
+#hitmark{position:absolute;left:50%;top:50%;width:0;height:0;opacity:0;transition:opacity .08s}
+#hitmark.on{opacity:1}
+#hitmark i{position:absolute;left:-12px;top:-1.5px;width:24px;height:3px;background:#fff;box-shadow:0 0 3px #000}
+#hitmark i:nth-child(1){transform:rotate(45deg)}#hitmark i:nth-child(2){transform:rotate(-45deg)}
+#hitmark.head i{background:#ff3b3b}

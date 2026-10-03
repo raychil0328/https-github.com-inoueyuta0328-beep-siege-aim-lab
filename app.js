@@ -55,7 +55,7 @@ const WEAPON = {
 const settings = {
   dpi: 800, fov: 90, sensH: 10, sensV: 10, msmu: 0.02, xfactor: 0.02,
   ads: { '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 },
-  scope: 2.5, adsmode: 'hold', crouchmode: 'toggle', leanmode: 'hold', bots: 'auto', invert: false,
+  scope: 2.5, sight: '2.5', reticle: '#ff2b2b', ammomode: 'mag', adsmode: 'hold', crouchmode: 'toggle', leanmode: 'hold', bots: 'auto', invert: false,
   difficulty: 1, duration: 60, mode: 'cqb',
 };
 const ADS_IDS = { '1': 'ads1', '1.5': 'ads15', '2': 'ads2', '2.5': 'ads25', '3': 'ads3', '12': 'ads12' };
@@ -66,7 +66,7 @@ function loadSettings() {
   settings.ads = Object.assign({ '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 }, settings.ads || {});
   for (const id of SIMPLE_IDS) $(id).value = settings[id];
   for (const k in ADS_IDS) $(ADS_IDS[k]).value = settings.ads[k];
-  $('scope').value = String(settings.scope); $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle'; $('leanmode').value = settings.leanmode || 'hold'; $('bots').value = String(settings.bots ?? 'auto');
+  $('sight').value = settings.sight || '2.5'; $('reticle').value = settings.reticle || '#ff2b2b'; $('ammomode').value = settings.ammomode || 'mag'; $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle'; $('leanmode').value = settings.leanmode || 'hold'; $('bots').value = String(settings.bots ?? 'auto');
   $('invert').checked = settings.invert;
   $('difficulty').value = String(settings.difficulty); $('duration').value = String(settings.duration);
 }
@@ -78,7 +78,7 @@ function readSettings() {
   settings.msmu = clamp(+$('msmu').value || 0.02, 0.0001, 1);
   settings.xfactor = clamp(+$('xfactor').value || 0.02, 0.0001, 1);
   for (const k in ADS_IDS) settings.ads[k] = clamp(+$(ADS_IDS[k]).value || 50, 1, 100);
-  settings.scope = +$('scope').value; settings.adsmode = $('adsmode').value; settings.crouchmode = $('crouchmode').value; settings.leanmode = $('leanmode').value; settings.bots = $('bots').value; settings.invert = $('invert').checked;
+  settings.sight = $('sight').value; settings.scope = SIGHTS[settings.sight].zoom; settings.reticle = $('reticle').value; settings.ammomode = $('ammomode').value; settings.adsmode = $('adsmode').value; settings.crouchmode = $('crouchmode').value; settings.leanmode = $('leanmode').value; settings.bots = $('bots').value; settings.invert = $('invert').checked;
   settings.difficulty = +$('difficulty').value; settings.duration = +$('duration').value;
   try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {}
   updateSensInfo();
@@ -534,7 +534,7 @@ function eyePos() { // lean shifts the camera sideways (R6S lean ≈ 0.4m) along
 }
 
 // ---------------------------------------------------------------- weapon
-function startReload() { if (game.reloading > 0 || game.ammo === WEAPON.mag) return; game.reloading = WEAPON.reload; }
+function startReload() { if (settings.ammomode === 'infinite' || game.reloading > 0 || game.ammo === WEAPON.mag) return; game.reloading = WEAPON.reload; }
 function spreadDeg() {
   let s = game.ads ? WEAPON.adsSpread : WEAPON.hipSpread;
   if (game.moving) s += (game.ads ? WEAPON.adsMoveSpread : WEAPON.hipMoveSpread) * (game.sprint ? 2 : 1);
@@ -542,7 +542,7 @@ function spreadDeg() {
   return s;
 }
 function fireShot(eye, view) {
-  game.ammo--; game.shots++; game.fireCd += 60 / WEAPON.rpm; game.muzzle = 0.05; game.recoilVis = 1;
+  if (settings.ammomode !== 'infinite') game.ammo--; game.shots++; game.fireCd += 60 / WEAPON.rpm; game.muzzle = 0.05; game.recoilVis = 1;
   const sp = spreadDeg() * DEG; const ang = Math.random() * Math.PI * 2, mag = Math.sqrt(Math.random()) * sp;
   const d = [0, 1, 2].map(i => view.f[i] + view.r[i] * Math.cos(ang) * mag + view.u[i] * Math.sin(ang) * mag);
   const dl = Math.hypot(...d); d[0] /= dl; d[1] /= dl; d[2] /= dl;
@@ -550,7 +550,7 @@ function fireShot(eye, view) {
   let best = null;
   for (const b of game.bots) { if (!b.alive) continue; const h = b.hitTest(eye, d); if (h && h.t < tProp && (!best || h.t < best.t)) best = { ...h, bot: b }; }
   if (best) {
-    const dmg = best.part === 'head' ? WEAPON.dmgHead : WEAPON.dmgBody; best.bot.hp -= dmg; best.bot.flash = 0.12; game.hits++; game.damage += dmg; game.hitMarker = 0.12;
+    const dmg = best.part === 'head' ? WEAPON.dmgHead : WEAPON.dmgBody; best.bot.hp -= dmg; best.bot.flash = 0.12; game.hits++; game.damage += dmg; game.hitMarker = 0.12; game.hitHead = best.part === 'head';
     game.score += 10;
     if (best.bot.hp <= 0) { best.bot.alive = false; best.bot.dead = 0; game.kills++; if (best.part === 'head') { game.headshots++; game.score += 150; } else game.score += 100; }
     game.impacts.push({ p: [eye[0] + d[0] * best.t, eye[1] + d[1] * best.t, eye[2] + d[2] * best.t], t: 0.08, c: best.part === 'head' ? [1, 0.2, 0.2] : COLORS.spark });
@@ -626,10 +626,69 @@ function showResults(complete) {
   $('results-body').innerHTML = rows.map(([k, v]) => `<div class="r"><span>${k}</span><b>${v}</b></div>`).join('') + `<div class="r"><span>平均FPS</span><b>${fps.avg.toFixed(0)}</b></div>`;
   $('results').classList.remove('hidden'); showBest();
 }
+// ---------------------------------------------------------------- sights (SVG overlays; units: 1000 = screen height)
+const SIGHTS = {
+  holo:   { zoom: 1,   name: '1.0x Holo',    kind: 'rect',   w: 600, h: 430, rx: 70, frame: 34, outside: 0.38, tint: 0.07 },
+  reddot: { zoom: 1,   name: '1.0x Red Dot', kind: 'circle', r: 300, frame: 46, outside: 0.38, tint: 0.05 },
+  reflex: { zoom: 1,   name: '1.0x Reflex',  kind: 'rect',   w: 430, h: 380, rx: 24, frame: 18, outside: 0.32, tint: 0.04 },
+  '1.5':  { zoom: 1.5, name: '1.5x',         kind: 'circle', r: 330, frame: 36, outside: 0.9,  tint: 0.08 },
+  '2':    { zoom: 2,   name: '2.0x',         kind: 'circle', r: 340, frame: 36, outside: 0.92, tint: 0.08 },
+  '2.5':  { zoom: 2.5, name: '2.5x ACOG',    kind: 'circle', r: 350, frame: 40, outside: 0.94, tint: 0.1 },
+  '3':    { zoom: 3,   name: '3.0x',         kind: 'circle', r: 350, frame: 40, outside: 0.94, tint: 0.1 },
+  '12':   { zoom: 12,  name: '12.0x',        kind: 'circle', r: 420, frame: 44, outside: 0.97, tint: 0.12 },
+};
+function reticleSVG(key, c) {
+  const glow = `filter="url(#glow)"`;
+  switch (key) {
+    case 'holo': // EOTech-style 65 MOA ring + 1 MOA dot, ticks at 3 / 6 / 9
+      return `<g ${glow} stroke="${c}" fill="none" stroke-width="2.6"><circle r="50"/><line x1="-50" y1="0" x2="-64" y2="0"/><line x1="50" y1="0" x2="64" y2="0"/><line x1="0" y1="50" x2="0" y2="64"/></g><circle r="4" fill="${c}" ${glow}/>`;
+    case 'reddot':
+      return `<circle r="5.5" fill="${c}" ${glow}/>`;
+    case 'reflex': // small dot with faint bracket
+      return `<circle r="4" fill="${c}" ${glow}/>`;
+    case '1.5': // circle-dot with outer stadia
+      return `<g ${glow} stroke="${c}" fill="none" stroke-width="2.6"><circle r="95"/><line x1="-330" y1="0" x2="-118" y2="0"/><line x1="118" y1="0" x2="330" y2="0"/><line x1="0" y1="118" x2="0" y2="330"/></g><circle r="3.5" fill="${c}" ${glow}/>`;
+    case '2': // duplex crosshair
+      return `<g ${glow} stroke="${c}" fill="none"><g stroke-width="9"><line x1="-340" y1="0" x2="-130" y2="0"/><line x1="130" y1="0" x2="340" y2="0"/><line x1="0" y1="130" x2="0" y2="340"/><line x1="0" y1="-340" x2="0" y2="-130"/></g><g stroke-width="2"><line x1="-130" y1="0" x2="-22" y2="0"/><line x1="22" y1="0" x2="130" y2="0"/><line x1="0" y1="22" x2="0" y2="130"/><line x1="0" y1="-130" x2="0" y2="-22"/></g></g><circle r="3" fill="${c}" ${glow}/>`;
+    case '2.5': // ACOG chevron + post with BDC ticks
+      return `<g ${glow} stroke="${c}" fill="none" stroke-width="5" stroke-linejoin="miter"><path d="M-34 24 L0 -26 L34 24"/></g><g ${glow} stroke="${c}" stroke-width="3"><line x1="0" y1="34" x2="0" y2="230"/><line x1="-16" y1="90" x2="16" y2="90"/><line x1="-13" y1="135" x2="13" y2="135"/><line x1="-10" y1="180" x2="10" y2="180"/></g><g stroke="#111" stroke-width="7"><line x1="-350" y1="0" x2="-210" y2="0"/><line x1="210" y1="0" x2="350" y2="0"/><line x1="0" y1="250" x2="0" y2="350"/></g>`;
+    case '3': // fine crosshair with mil ticks and dot
+      return `<g ${glow} stroke="${c}" fill="none" stroke-width="2"><line x1="-350" y1="0" x2="-28" y2="0"/><line x1="28" y1="0" x2="350" y2="0"/><line x1="0" y1="28" x2="0" y2="350"/><line x1="0" y1="-350" x2="0" y2="-28"/>${[70,140,210].map(d=>`<line x1="${d}" y1="-9" x2="${d}" y2="9"/><line x1="${-d}" y1="-9" x2="${-d}" y2="9"/><line x1="-9" y1="${d}" x2="9" y2="${d}"/><line x1="-9" y1="${-d}" x2="9" y2="${-d}"/>`).join('')}</g><circle r="3" fill="${c}" ${glow}/>`;
+    case '12': // mil-dot
+      return `<g stroke="${c}" fill="${c}" ${glow}><g stroke-width="1.6" fill="none"><line x1="-420" y1="0" x2="420" y2="0"/><line x1="0" y1="-420" x2="0" y2="420"/></g>${[1,2,3,4].map(i=>`<circle cx="${i*70}" r="4"/><circle cx="${-i*70}" r="4"/><circle cy="${i*70}" r="4"/><circle cy="${-i*70}" r="4"/>`).join('')}<g stroke-width="10"><line x1="-420" y1="0" x2="-320" y2="0"/><line x1="320" y1="0" x2="420" y2="0"/><line x1="0" y1="320" x2="0" y2="420"/><line x1="0" y1="-420" x2="0" y2="-320"/></g></g>`;
+  }
+  return '';
+}
+function scopeSVG(key, color) {
+  const S = SIGHTS[key]; const aspect = (canvas.clientWidth || 16) / (canvas.clientHeight || 9); const W = 1000 * aspect, H = 1000;
+  const win = S.kind === 'circle'
+    ? `<circle r="${S.r}"/>`
+    : `<rect x="${-S.w / 2}" y="${-S.h / 2}" width="${S.w}" height="${S.h}" rx="${S.rx}"/>`;
+  const frameShape = S.kind === 'circle'
+    ? `<circle r="${S.r + S.frame / 2}" fill="none" stroke="#0a0a0c" stroke-width="${S.frame}"/><circle r="${S.r + 2}" fill="none" stroke="#2a2c30" stroke-width="3"/>`
+    : `<rect x="${-S.w / 2 - S.frame / 2}" y="${-S.h / 2 - S.frame / 2}" width="${S.w + S.frame}" height="${S.h + S.frame}" rx="${S.rx + S.frame / 2}" fill="none" stroke="#0a0a0c" stroke-width="${S.frame}"/><rect x="${-S.w / 2 - 1}" y="${-S.h / 2 - 1}" width="${S.w + 2}" height="${S.h + 2}" rx="${S.rx}" fill="none" stroke="#2a2c30" stroke-width="2.5"/>`;
+  const magnified = S.zoom > 1;
+  return `<svg viewBox="${-W / 2} ${-H / 2} ${W} ${H}" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <mask id="hole"><rect x="${-W / 2}" y="${-H / 2}" width="${W}" height="${H}" fill="#fff"/><g fill="#000">${win}</g></mask>
+    <radialGradient id="glass"><stop offset="60%" stop-color="#9fb4d0" stop-opacity="${S.tint}"/><stop offset="100%" stop-color="#000" stop-opacity="${magnified ? 0.55 : 0.25}"/></radialGradient>
+  </defs>
+  <rect x="${-W / 2}" y="${-H / 2}" width="${W}" height="${H}" fill="#000" fill-opacity="${S.outside}" mask="url(#hole)"/>
+  <g fill="url(#glass)">${win}</g>
+  ${frameShape}
+  ${reticleSVG(key, color)}
+</svg>`;
+}
+let scopeBuiltFor = '';
 function updateScopeUI() {
-  const sc = $('scope-ov'); const ch = $('crosshair');
-  if (game.ads) { ch.classList.add('ads'); sc.className = settings.scope <= 1.5 ? 'holo' : 'acog'; $('h-zoom').textContent = `ADS ${settings.scope}x`; }
-  else { sc.classList.add('hidden'); ch.classList.remove('ads'); $('h-zoom').textContent = 'HIPFIRE'; }
+  const sc = $('scope-ov'); const ch = $('crosshair'); const S = SIGHTS[settings.sight] || SIGHTS['2.5'];
+  if (game.ads) {
+    ch.classList.add('ads'); sc.classList.remove('hidden');
+    const sig = `${settings.sight}|${settings.reticle}|${canvas.clientWidth}x${canvas.clientHeight}`;
+    if (scopeBuiltFor !== sig) { sc.innerHTML = scopeSVG(settings.sight, settings.reticle); scopeBuiltFor = sig; }
+    $('h-zoom').textContent = `ADS ${S.name}`;
+  } else { sc.classList.add('hidden'); ch.classList.remove('ads'); $('h-zoom').textContent = 'HIPFIRE'; }
 }
 
 // ---------------------------------------------------------------- main loop
@@ -640,7 +699,7 @@ function resize() {
   const w = Math.floor(canvas.clientWidth * dpr), h = Math.floor(canvas.clientHeight * dpr);
   if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; gl.viewport(0, 0, w, h); }
 }
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => { resize(); if (game.ads) updateScopeUI(); });
 gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
 
 let prevT = performance.now();
@@ -679,9 +738,9 @@ function frame(now) {
     // HUD
     $('h-time').textContent = Math.max(0, game.timeLeft).toFixed(1);
     $('h-score').textContent = Math.round(game.score);
-    if (game.combat) { $('h-acc').textContent = (game.shots ? game.hits / game.shots * 100 : 0).toFixed(1) + '%'; $('h-kills').textContent = game.kills; $('h-ammo').textContent = game.reloading > 0 ? 'RELOAD' : `${game.ammo} / ∞`; $('h-ammo').classList.toggle('low', game.ammo <= 8); }
+    if (game.combat) { $('h-acc').textContent = (game.shots ? game.hits / game.shots * 100 : 0).toFixed(1) + '%'; $('h-kills').textContent = game.kills; $('h-ammo').textContent = game.reloading > 0 ? 'RELOAD' : settings.ammomode === 'infinite' ? '∞' : `${game.ammo} / ∞`; $('h-ammo').classList.toggle('low', settings.ammomode !== 'infinite' && game.ammo <= 8); }
     else { const played = settings.duration - game.timeLeft; $('h-acc').textContent = (played > 0 ? game.onTargetTime / played * 100 : 0).toFixed(1) + '%'; }
-    $('crosshair').classList.toggle('hit', game.hitMarker > 0);
+    $('crosshair').classList.toggle('hit', game.hitMarker > 0); $('hitmark').classList.toggle('on', game.hitMarker > 0); $('hitmark').classList.toggle('head', game.hitHead);
     const st = `${game.sprint ? 'SPRINT' : game.crouch > 0.5 ? 'CROUCH' : game.moving ? 'WALK' : 'STAND'}${game.lean > 0.3 ? ' · LEAN L' : game.lean < -0.3 ? ' · LEAN R' : ''}`;
     if (st !== lastHudText) { lastHudText = st; $('h-stance').textContent = st; }
     if (game.timeLeft <= 0) finishRun();
@@ -728,9 +787,9 @@ function frame(now) {
 }
 
 // ---------------------------------------------------------------- boot
-loadSettings(); selectedMode = MODES.some(m => m.id === settings.mode) ? settings.mode : 'cqb';
+loadSettings(); settings.scope = (SIGHTS[settings.sight] || SIGHTS['2.5']).zoom; selectedMode = MODES.some(m => m.id === settings.mode) ? settings.mode : 'cqb';
 buildMap(); buildModeList(); updateSensInfo(); showBest();
-for (const id of [...SIMPLE_IDS, 'scope', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
+for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
 for (const id of ['difficulty', 'duration']) $(id).addEventListener('change', () => { readSettings(); showBest(); });
 $('start').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('again').addEventListener('click', async () => { startRun(); await requestLock(); });
