@@ -128,3 +128,18 @@ footer a{color:var(--dim)}
 #hitmark i{position:absolute;left:-12px;top:-1.5px;width:24px;height:3px;background:#fff;box-shadow:0 0 3px #000}
 #hitmark i:nth-child(1){transform:rotate(45deg)}#hitmark i:nth-child(2){transform:rotate(-45deg)}
 #hitmark.head i{background:#ff3b3b}
+
+/* ---------- mode switch ---------- */
+.modeswitch{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:1180px;margin:0 auto 16px}
+.ms{display:grid;grid-template-columns:56px 1fr;grid-template-rows:auto auto;column-gap:14px;align-items:center;text-align:left;padding:14px 18px;
+  background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--dim);cursor:pointer;transition:.15s;position:relative}
+.ms svg{grid-row:1/3;width:56px;height:56px;color:var(--dim)}
+.ms .ms-t{font-family:var(--head);font-size:22px;font-weight:700;letter-spacing:.18em;color:var(--text)}
+.ms .ms-d{font-size:12px;line-height:1.5}
+.ms:hover{border-color:var(--line2)}
+.ms.on{border-color:var(--accent);background:linear-gradient(90deg,rgba(245,166,35,.18),rgba(245,166,35,.04))}
+.ms.on svg,.ms.on .ms-t{color:var(--accent)}
+.ms.on::after{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
+.grid.g3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:900px){.modeswitch{grid-template-columns:1fr}.grid.g3{grid-template-columns:1fr 1fr}}
+.modes-panel h3{margin-top:18px}

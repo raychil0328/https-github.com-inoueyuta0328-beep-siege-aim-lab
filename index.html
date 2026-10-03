@@ -43,38 +43,52 @@
     <div class="chips"><span>FULLSCREEN</span><span>RAW INPUT 8000Hz</span><span>UNCAPPED FPS</span><span>R6S SENS EXACT</span></div>
   </header>
 
+  <nav class="modeswitch">
+    <button id="ms-combat" class="ms on" data-mm="combat">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M8 54V26l24-16 24 16v28H40V38H24v16Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="32" cy="28" r="6" fill="none" stroke="currentColor" stroke-width="3"/><path d="M32 18v4M32 34v4M22 28h4M38 28h4" stroke="currentColor" stroke-width="3"/></svg>
+      <span class="ms-t">MAP COMBAT</span><span class="ms-d">本格トレーニング — 実マップ · 移動 · リコイル · カバーを使う BOT</span>
+    </button>
+    <button id="ms-lab" class="ms" data-mm="lab">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="22" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="32" cy="32" r="12" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="32" cy="32" r="3" fill="currentColor"/><path d="M32 4v8M32 52v8M4 32h8M52 32h8" stroke="currentColor" stroke-width="3"/></svg>
+      <span class="ms-t">AIM LAB</span><span class="ms-d">動体視力・シンプルエイム — リコイルなし · 時間追従で採点</span>
+    </button>
+  </nav>
+
   <main>
-    <section class="panel modes-panel">
-      <h2><span class="num">01</span>シナリオ</h2>
-      <div class="group-title">COMBAT — 移動 · 射撃 · リコイル · カバー BOT</div>
+    <section id="pane-combat" class="panel modes-panel">
+      <h2><span class="num">01</span>マップ戦シナリオ<small>移動 · 射撃 · リコイル · カバー BOT</small></h2>
       <div id="modes-combat" class="modes"></div>
-      <div class="group-title">TRACKING — レーザー（リコイルなし）</div>
-      <div id="modes-track" class="modes"></div>
-      <div class="row opts">
-        <label>難易度 <select id="difficulty">
-          <option value="0.7">Easy</option>
-          <option value="1" selected>Normal</option>
-          <option value="1.35">Hard</option>
-          <option value="1.8">Insane</option>
-        </select></label>
-        <label>マップ（COMBAT） <select id="map">
+      <h3>マップ戦の設定</h3>
+      <div class="grid g3">
+        <label>マップ <select id="map">
+          <option value="oregon1f">オレゴン 1F（ゲームデータ）</option>
+          <option value="oregonb">オレゴン 地下（ゲームデータ）</option>
+          <option value="oregon2f">オレゴン 2F（ゲームデータ）</option>
           <option value="hall">トレーニングホール</option>
           <option value="clubhouse">クラブハウス 地下（概略）</option>
-          <option value="oregonb">オレゴン 地下（ゲームデータ）</option>
-          <option value="oregon1f">オレゴン 1F（ゲームデータ）</option>
-          <option value="oregon2f">オレゴン 2F（ゲームデータ）</option>
-          <option value="oregon">オレゴン 地下（旧・概略）</option>
           <option value="bank">バンク 地下（概略）</option>
+          <option value="oregon">オレゴン 地下（旧・概略）</option>
+        </select></label>
+        <label>オブジェクト（家具） <select id="objects">
+          <option value="large" selected>大きいものだけ</option>
+          <option value="all">すべて</option>
+          <option value="none">なし（壁のみ）</option>
+        </select></label>
+        <label>BOT 数 <select id="bots">
+          <option value="auto" selected>自動（モード既定）</option>
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          <option value="5">5</option><option value="6">6</option><option value="8">8</option><option value="10">10</option>
         </select></label>
         <label>BOT サイズ <select id="botsize">
           <option value="s">小（幅 ×0.75）</option>
           <option value="m" selected>中（標準）</option>
           <option value="l">大（幅 ×1.3）</option>
         </select></label>
-        <label>BOT 数（COMBAT） <select id="bots">
-          <option value="auto" selected>自動（モード既定）</option>
-          <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-          <option value="5">5</option><option value="6">6</option><option value="8">8</option><option value="10">10</option>
+        <label>難易度 <select id="difficulty">
+          <option value="0.7">Easy</option>
+          <option value="1" selected>Normal</option>
+          <option value="1.35">Hard</option>
+          <option value="1.8">Insane</option>
         </select></label>
         <label>時間 <select id="duration">
           <option value="30">30s</option>
@@ -82,6 +96,16 @@
           <option value="120">120s</option>
           <option value="300">300s</option>
         </select></label>
+        <label>リコイル強度 <select id="recoil">
+          <option value="0">なし</option>
+          <option value="0.5">弱 (×0.5)</option>
+          <option value="0.75">やや弱 (×0.75)</option>
+          <option value="1" selected>標準 (×1.0)</option>
+          <option value="1.25">やや強 (×1.25)</option>
+          <option value="1.5">強 (×1.5)</option>
+          <option value="2">非常に強 (×2.0)</option>
+        </select></label>
+        <label>弾薬 <select id="ammomode"><option value="mag">30 発 + リロード</option><option value="infinite">無限（リロードなし）</option></select></label>
       </div>
       <div id="best" class="best"></div>
       <button id="start" class="primary"><span class="ico">▶</span> DEPLOY<small>クリックでフルスクリーン ＆ マウスロック</small></button>
@@ -97,8 +121,35 @@
       </div>
     </section>
 
+    <section id="pane-lab" class="panel modes-panel hidden">
+      <h2><span class="num">01</span>エイムラボ シナリオ<small>レーザー（リコイルなし）· ターゲット上にいた時間で採点</small></h2>
+      <div id="modes-track" class="modes"></div>
+      <h3>エイムラボの設定</h3>
+      <div class="grid g3">
+        <label>難易度（速さ） <select id="difficulty-lab">
+          <option value="0.7">Easy</option>
+          <option value="1" selected>Normal</option>
+          <option value="1.35">Hard</option>
+          <option value="1.8">Insane</option>
+        </select></label>
+        <label>時間 <select id="duration-lab">
+          <option value="30">30s</option>
+          <option value="60" selected>60s</option>
+          <option value="120">120s</option>
+        </select></label>
+      </div>
+      <div id="best-lab" class="best"></div>
+      <button id="start-lab" class="primary"><span class="ico">▶</span> START<small>クリックでフルスクリーン ＆ マウスロック</small></button>
+      <div class="keys">
+        <div><kbd>左クリック</kbd> 長押しで追従</div>
+        <div><kbd>右クリック</kbd> ADS</div>
+        <div><kbd>BackSpace</kbd> リスタート</div>
+        <div><kbd>ESC</kbd> メニュー</div>
+      </div>
+    </section>
+
     <section class="panel">
-      <h2><span class="num">02</span>R6S 設定<small>ゲーム内と同じ値を入力</small></h2>
+      <h2><span class="num">02</span>共通設定（R6S）<small>ゲーム内と同じ値を入力 — 両モード共通</small></h2>
       <div class="tabs">
         <button class="on" data-tab="tab-sens">感度</button>
         <button data-tab="tab-ads">ADS 倍率別</button>
@@ -156,16 +207,6 @@
           <label>ADS 操作 <select id="adsmode"><option value="hold">ホールド</option><option value="toggle">トグル</option></select></label>
           <label>しゃがみ操作 <select id="crouchmode"><option value="toggle">トグル</option><option value="hold">ホールド</option></select></label>
           <label>リーン操作 (Q/E) <select id="leanmode"><option value="hold">ホールド（長押し）</option><option value="toggle">トグル（切り替え）</option></select></label>
-          <label>リコイル強度 <select id="recoil">
-            <option value="0">なし</option>
-            <option value="0.5">弱 (×0.5)</option>
-            <option value="0.75">やや弱 (×0.75)</option>
-            <option value="1" selected>標準 (×1.0)</option>
-            <option value="1.25">やや強 (×1.25)</option>
-            <option value="1.5">強 (×1.5)</option>
-            <option value="2">非常に強 (×2.0)</option>
-          </select></label>
-          <label>弾薬 <select id="ammomode"><option value="mag">30 発 + リロード</option><option value="infinite">無限（リロードなし）</option></select></label>
           <label class="chk"><span>マウス反転</span><input id="invert" type="checkbox"></label>
         </div>
         <div class="note">

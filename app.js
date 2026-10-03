@@ -68,7 +68,7 @@ const WEAPON = {
 const settings = {
   dpi: 800, fov: 90, sensH: 10, sensV: 10, msmu: 0.02, xfactor: 0.02,
   ads: { '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 },
-  scope: 2.5, sight: '2.5', reticle: '#ff2b2b', ammomode: 'mag', adsmode: 'hold', crouchmode: 'toggle', leanmode: 'hold', bots: 'auto', map: 'hall', recoil: 1, botsize: 'm', invert: false,
+  scope: 2.5, sight: '2.5', reticle: '#ff2b2b', ammomode: 'mag', adsmode: 'hold', crouchmode: 'toggle', leanmode: 'hold', bots: 'auto', map: 'oregon1f', recoil: 1, botsize: 'm', objects: 'large', menuMode: 'combat', difficultyLab: 1, durationLab: 60, invert: false,
   difficulty: 1, duration: 60, mode: 'cqb',
 };
 const ADS_IDS = { '1': 'ads1', '1.5': 'ads15', '2': 'ads2', '2.5': 'ads25', '3': 'ads3', '12': 'ads12' };
@@ -82,6 +82,7 @@ function loadSettings() {
   $('sight').value = settings.sight || '2.5'; $('reticle').value = settings.reticle || '#ff2b2b'; $('ammomode').value = settings.ammomode || 'mag'; $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle'; $('leanmode').value = settings.leanmode || 'hold'; $('bots').value = String(settings.bots ?? 'auto'); $('map').value = MAPS[settings.map] ? settings.map : 'hall'; $('recoil').value = String(settings.recoil ?? 1); $('botsize').value = settings.botsize || 'm';
   $('invert').checked = settings.invert;
   $('difficulty').value = String(settings.difficulty); $('duration').value = String(settings.duration);
+  $('difficulty-lab').value = String(settings.difficultyLab ?? 1); $('duration-lab').value = String(settings.durationLab ?? 60); $('objects').value = settings.objects || 'large';
 }
 function readSettings() {
   settings.dpi = clamp(+$('dpi').value || 800, 100, 32000);
@@ -93,6 +94,7 @@ function readSettings() {
   for (const k in ADS_IDS) settings.ads[k] = clamp(+$(ADS_IDS[k]).value || 50, 1, 100);
   settings.sight = $('sight').value; settings.scope = SIGHTS[settings.sight].zoom; settings.reticle = $('reticle').value; settings.ammomode = $('ammomode').value; settings.adsmode = $('adsmode').value; settings.crouchmode = $('crouchmode').value; settings.leanmode = $('leanmode').value; settings.bots = $('bots').value; settings.map = $('map').value; settings.recoil = +$('recoil').value; settings.botsize = $('botsize').value; settings.invert = $('invert').checked;
   settings.difficulty = +$('difficulty').value; settings.duration = +$('duration').value;
+  settings.difficultyLab = +$('difficulty-lab').value; settings.durationLab = +$('duration-lab').value; settings.objects = $('objects').value;
   try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {}
   updateSensInfo();
 }
@@ -400,7 +402,7 @@ function buildMap(key) {
     else {
       ROOM = { xmin: d.bounds[0], xmax: d.bounds[1], zmin: d.bounds[2], zmax: d.bounds[3], h: 3.2 };
       for (const [x, z, w, dd, h] of d.walls) addProp(x, z, w, dd, h, 'wall');
-      for (const [x, z, w, dd, h] of d.furn) addProp(x, z, w, dd, h, 'furniture');
+      for (const [x, z, w, dd, h] of d.furn) { if (settings.objects === 'none') continue; if (settings.objects === 'large' && !((w * dd >= 1.2 && h >= 0.7) || h >= 1.3)) continue; addProp(x, z, w, dd, h, 'furniture'); }
       buildGrid(); detectDoors();
       // spawn: nearest free spot to the requested point (spiral search)
       let sx = d.spawn[0], sz = d.spawn[1];
@@ -477,6 +479,15 @@ function coverSpots(zone) {
       const hide = [d.x + away[0] * 1.0 + lat[0] * sgn * 1.3, d.z + away[1] * 1.0 + lat[1] * sgn * 1.3];
       const peek = [d.x + away[0] * 0.9 + lat[0] * sgn * 0.25, d.z + away[1] * 0.9 + lat[1] * sgn * 0.25];
       if (posFree(hide[0], hide[1], BOT.r) && posFree(peek[0], peek[1], BOT.r)) spots.push({ hide, peeks: [peek], low: false, prop: d });
+    }
+  }
+  // sparse maps (walls only): add open-floor spots on a 2.5 m grid so bots can still spread out
+  if (spots.length < 30) {
+    for (let z = ROOM.zmin + 1.5; z < ROOM.zmax - 1.5; z += 2.5) for (let x = ROOM.xmin + 1.5; x < ROOM.xmax - 1.5; x += 2.5) {
+      if (!inZone(x, z, zone) || Math.hypot(x - sp.x, z - sp.z) < 6 || !posFree(x, z, BOT.r + 0.2)) continue;
+      const o = [x, 1.2, z]; if ([[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]].some(dd => rayProps(o, dd, 14) > 14)) continue;   // must be indoors
+      const peeks = [[x + 1, z], [x - 1, z], [x, z + 1], [x, z - 1]].filter(q => posFree(q[0], q[1], BOT.r));
+      if (peeks.length) spots.push({ hide: [x, z], peeks, low: false, prop: null });
     }
   }
   return spots;
@@ -656,7 +667,7 @@ class Bot {
   constructor(zone, preset) { this.zone = zone; this.spawn(preset); }
   spawn(preset) {
     let spots = coverSpots(this.zone); if (!spots.length) for (const z of ['near', 'mid', 'far']) { spots = coverSpots(z); if (spots.length) { this.zone = z; break; } }
-    this.spot = preset ? spots[preset.spotIndex % spots.length] : pick(spots);
+    this.spot = preset && preset.spot ? preset.spot : pickSpreadSpot(spots, this);
     this.x = this.spot.hide[0]; this.z = this.spot.hide[1]; this.hp = BOT.hp; this.dead = 0; this.alive = true;
     this.crouch = this.spot.low ? 1 : 0; this.crouchT = this.crouch; this.lean = 0; this.leanT = 0; this.flash = 0;
     this.state = 'hide'; this.timer = preset ? preset.delay : rand(0.3, 1.0); this.dest = null; this.sprint = false;
@@ -725,11 +736,33 @@ class Bot {
 }
 // 1000 spawn patterns per map: pattern k is a deterministic layout (cover spot + first-move delay per bot)
 // generated from seed hash(map, k); one is picked at random for every run.
+// Spread spawns out: every bot takes the cover spot that is farthest from the bots already placed
+// (and from the player); among the best few a seeded/random choice keeps patterns varied.
+const SPREAD_TOPK = 3;
+function spreadPick(spots, others, rng) {
+  if (!spots.length) return null;
+  const sp = MAP.spawn;
+  const scored = spots.map(s => { let d = Math.hypot(s.hide[0] - sp.x, s.hide[1] - sp.z) * 0.6; for (const o of others) d = Math.min(d, Math.hypot(s.hide[0] - o[0], s.hide[1] - o[1])); return [d, s]; });
+  scored.sort((a, b) => b[0] - a[0]);
+  if (scored[0][0] <= 0.5 && scored.length > 1) return scored[0][1];   // everything crowded: just take the best
+  const k = Math.min(SPREAD_TOPK, scored.length);
+  return scored[Math.floor(rng() * k)][1];
+}
+function pickSpreadSpot(spots, self) {
+  const others = game.bots.filter(b => b !== self && b.alive).map(b => [b.x, b.z]);
+  return spreadPick(spots, others, Math.random) || pick(spots);
+}
 function spawnPattern(mapKey, k, n, zones) {
   let h = 2166136261; for (const ch of mapKey + ':' + k) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
   const rng = seededRng(h);
-  const out = [];
-  for (let i = 0; i < n; i++) out.push({ zone: zones[i % zones.length], spotIndex: Math.floor(rng() * 100000), delay: 0.2 + rng() * 1.6 });
+  const out = []; const placed = [];
+  for (let i = 0; i < n; i++) {
+    let zone = zones[i % zones.length]; let spots = coverSpots(zone);
+    if (!spots.length) for (const z of ['near', 'mid', 'far']) { spots = coverSpots(z); if (spots.length) { zone = z; break; } }
+    const spot = spreadPick(spots, placed, rng);
+    if (spot) placed.push(spot.hide);
+    out.push({ zone, spot, delay: 0.2 + rng() * 1.6 });
+  }
   return out;
 }
 function spawnBots() {
@@ -855,16 +888,20 @@ function buildModeList() {
     }
   }
 }
-function bestKey() { return `sal-best-${selectedMode}-${$('difficulty').value}-${$('duration').value}`; }
+function isLab() { return (MODES.find(x => x.id === selectedMode) || MODES[0]).group !== 'combat'; }
+function curDiff() { return isLab() ? settings.difficultyLab : settings.difficulty; }
+function curDur() { return isLab() ? settings.durationLab : settings.duration; }
+function curDiffText() { return $(isLab() ? 'difficulty-lab' : 'difficulty').selectedOptions[0].text; }
+function bestKey() { return `sal-best-${selectedMode}-${curDiff()}-${curDur()}`; }
 function showBest() {
   let v = null; try { v = JSON.parse(localStorage.getItem(bestKey())); } catch (e) {}
   const m = MODES.find(x => x.id === selectedMode);
-  $('best').innerHTML = v ? `<b>BEST</b> ${m.name} · ${$('difficulty').selectedOptions[0].text} · ${$('duration').value}s — スコア <b>${v.score}</b>${v.acc != null ? ` · ${v.acc.toFixed(1)}%` : ''}` : `<b>BEST</b> ${m.name} — 記録なし`;
+  $(isLab() ? 'best-lab' : 'best').innerHTML = v ? `<b>BEST</b> ${m.name} · ${curDiffText()} · ${curDur()}s — スコア <b>${v.score}</b>${v.acc != null ? ` · ${v.acc.toFixed(1)}%` : ''}` : `<b>BEST</b> ${m.name} — 記録なし`;
 }
 function startRun() {
   readSettings();
-  game.mode = MODES.find(m => m.id === selectedMode); game.diff = settings.difficulty; game.combat = game.mode.group === 'combat';
-  Object.assign(game, { t: 0, timeLeft: settings.duration, onTargetTime: 0, fireTime: 0, score: 0, hitStreak: 0, shots: 0, hits: 0, headshots: 0, kills: 0, damage: 0,
+  game.mode = MODES.find(m => m.id === selectedMode); game.combat = game.mode.group === 'combat'; game.diff = curDiff(); game.dur = curDur();
+  Object.assign(game, { t: 0, timeLeft: game.dur, onTargetTime: 0, fireTime: 0, score: 0, hitStreak: 0, shots: 0, hits: 0, headshots: 0, kills: 0, damage: 0,
     ads: false, adsBlend: 0, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5.5, crouchHeld: false, crouch: 0, lean: 0, leanToggle: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0 });
   input.dx = input.dy = 0; fps.sum = 0; fps.n = 0;
   buildMap(game.combat ? settings.map : 'hall'); game.targets = []; game.bots = [];
@@ -881,7 +918,7 @@ function startRun() {
 function pauseToMenu() { game.running = false; game.firing = false; $('hud').classList.add('hidden'); $('menu').classList.remove('hidden'); if (game.t > 0.5) showResults(false); }
 function finishRun() { game.running = false; game.firing = false; if (document.pointerLockElement) document.exitPointerLock(); $('hud').classList.add('hidden'); $('menu').classList.remove('hidden'); showResults(true); }
 function showResults(complete) {
-  const played = settings.duration - game.timeLeft; const score = Math.round(game.score);
+  const played = game.dur - game.timeLeft; const score = Math.round(game.score);
   let rows = []; let acc = null;
   if (game.combat) {
     acc = game.shots ? game.hits / game.shots * 100 : 0;
@@ -894,7 +931,7 @@ function showResults(complete) {
   let isBest = false;
   if (complete && (!best || score > best.score)) { isBest = true; try { localStorage.setItem(bestKey(), JSON.stringify({ score, acc })); } catch (e) {} }
   $('results-score').innerHTML = `${score}${isBest ? '<small>★ NEW BEST</small>' : ''}`;
-  $('results-title').textContent = `${game.mode.name} · ${$('difficulty').selectedOptions[0].text} · ${settings.duration}s` + (complete ? '' : '（中断 — 記録は保存されません）');
+  $('results-title').textContent = `${game.mode.name} · ${curDiffText()} · ${game.dur}s` + (complete ? '' : '（中断 — 記録は保存されません）');
   $('results-body').innerHTML = rows.map(([k, v]) => `<div class="r"><span>${k}</span><b>${v}</b></div>`).join('') + `<div class="r"><span>平均FPS</span><b>${fps.avg.toFixed(0)}</b></div>`;
   $('results').classList.remove('hidden'); showBest();
 }
@@ -1065,7 +1102,7 @@ function frame(now) {
     $('h-time').textContent = Math.max(0, game.timeLeft).toFixed(1);
     $('h-score').textContent = Math.round(game.score);
     if (game.combat) { $('h-acc').textContent = (game.shots ? game.hits / game.shots * 100 : 0).toFixed(1) + '%'; $('h-kills').textContent = game.kills; $('h-ammo').textContent = game.reloading > 0 ? 'RELOAD' : settings.ammomode === 'infinite' ? '∞' : `${game.ammo} / ∞`; $('h-ammo').classList.toggle('low', settings.ammomode !== 'infinite' && game.ammo <= 8); }
-    else { const played = settings.duration - game.timeLeft; $('h-acc').textContent = (played > 0 ? game.onTargetTime / played * 100 : 0).toFixed(1) + '%'; }
+    else { const played = game.dur - game.timeLeft; $('h-acc').textContent = (played > 0 ? game.onTargetTime / played * 100 : 0).toFixed(1) + '%'; }
     $('crosshair').classList.toggle('hit', game.hitMarker > 0); $('hitmark').classList.toggle('on', game.hitMarker > 0); $('hitmark').classList.toggle('head', game.hitHead);
     const st = `${game.sprint ? 'SPRINT' : game.crouch > 0.5 ? 'CROUCH' : game.moving ? 'WALK' : 'STAND'}${game.lean > 0.3 ? ' · LEAN L' : game.lean < -0.3 ? ' · LEAN R' : ''}`;
     if (st !== lastHudText) { lastHudText = st; $('h-stance').textContent = st; }
@@ -1115,10 +1152,22 @@ function frame(now) {
 // ---------------------------------------------------------------- boot
 loadSettings(); settings.scope = (SIGHTS[settings.sight] || SIGHTS['2.5']).zoom; selectedMode = MODES.some(m => m.id === settings.mode) ? settings.mode : 'cqb';
 buildMap('hall'); loadMapData('oregon1f'); buildModeList(); updateSensInfo(); showBest();
-for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'map', 'recoil', 'botsize', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
-for (const id of ['difficulty', 'duration']) $(id).addEventListener('change', () => { readSettings(); showBest(); });
+for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'map', 'recoil', 'botsize', 'objects', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
+for (const id of ['difficulty', 'duration', 'difficulty-lab', 'duration-lab', 'objects']) $(id).addEventListener('change', () => { readSettings(); showBest(); });
+// MAP COMBAT / AIM LAB switch
+function setMenuMode(mm) {
+  settings.menuMode = mm; try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {}
+  document.querySelectorAll('.ms').forEach(b => b.classList.toggle('on', b.dataset.mm === mm));
+  $('pane-combat').classList.toggle('hidden', mm !== 'combat'); $('pane-lab').classList.toggle('hidden', mm !== 'lab');
+  const want = mm === 'combat' ? 'combat' : 'track';
+  if ((MODES.find(x => x.id === selectedMode) || {}).group !== want) { selectedMode = MODES.find(x => x.group === want).id; settings.mode = selectedMode; buildModeList(); }
+  showBest();
+}
+document.querySelectorAll('.ms').forEach(b => b.addEventListener('click', () => setMenuMode(b.dataset.mm)));
+setMenuMode(settings.menuMode === 'lab' ? 'lab' : (MODES.find(x => x.id === selectedMode) || {}).group === 'track' ? 'lab' : 'combat');
 $('start').addEventListener('click', async () => { if (MAPS[$('map').value]?.data && !MAP_DATA[$('map').value]) { $('start').disabled = true; await loadMapData($('map').value); $('start').disabled = false; } startRun(); await requestLock(); });
 $('again').addEventListener('click', async () => { startRun(); await requestLock(); });
+$('start-lab').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('close-results').addEventListener('click', () => { $('results').classList.add('hidden'); });
 canvas.addEventListener('click', async () => { if (game.running && !locked) await requestLock(); });
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b)); document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('hidden', p.id !== b.dataset.tab)); }));
