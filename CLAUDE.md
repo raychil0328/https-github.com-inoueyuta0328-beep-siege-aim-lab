@@ -71,6 +71,6 @@
 
 ## ローカル開発・デプロイ
 - ビルド不要。`python -m http.server 8080` → http://localhost:8080（`.claude/launch.json` に `siege-aim-lab` として登録済み）。
-- Xserver: サーバー xs288120（sv16593.xserver.jp）。デプロイは SSH（ポート 10022、ユーザー xs288120）+ rsync で `xs288120.xsrv.jp/public_html/R6SAIM/` へ。FTP は国外 IP（GitHub Actions）から接続できないため使わない。Secret `XSERVER_SSH_KEY`（パスフレーズなし ed25519、ラベル siege-aim-deploy）。SSH 設定の国外アクセス制限は OFF が必要。ドメインのトップ（`xs288120.xsrv.jp/`）と `/skirmish1/`（GGSPACE）は別サイトなので触らない。`horameter.com` / `typenova.jp` はこのアプリに使わない。
+- Xserver: サーバー xs288120（sv16593.xserver.jp）。デプロイは SSH（ポート 10022、ユーザー xs288120）+ rsync で `xs288120.xsrv.jp/public_html/R6SAIM/` へ。FTP は国外 IP（GitHub Actions）から接続できないため使わない。Secret `XSERVER_SSH_KEY`（パスフレーズなし ed25519、ラベル siege-aim-deploy）。SSH 設定の国外アクセス制限は OFF が必要。この鍵はサーバーの `~/.ssh/authorized_keys` で `restrict,command="perl ~/bin/rrsync -wo …/public_html/R6SAIM"` に制限済み（R6SAIM への書き込み専用。シェル・他フォルダ・ダウンロード不可）。ワークフローの転送先は `./`。Xserver のパネルで鍵を再登録すると制限が外れるので、その場合は付け直す（バックアップ `authorized_keys.bak-20261003`）。ドメインのトップ（`xs288120.xsrv.jp/`）と `/skirmish1/`（GGSPACE）は別サイトなので触らない。`horameter.com` / `typenova.jp` はこのアプリに使わない。
 - CLAUDE.md / README.md / `.claude/` / `.github/` は Xserver に上げない。
 - push はオーナーの指示があるときだけ。
