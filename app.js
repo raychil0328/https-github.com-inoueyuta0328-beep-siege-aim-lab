@@ -77,6 +77,7 @@ const SIMPLE_IDS = ['dpi', 'fov', 'sensH', 'sensV', 'msmu', 'xfactor'];
 
 function loadSettings() {
   try { Object.assign(settings, JSON.parse(localStorage.getItem('sal-settings') || '{}')); } catch (e) {}
+  settings.keys = Object.assign({}, DEFAULT_KEYS, settings.keys || {});
   settings.ads = Object.assign({ '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 }, settings.ads || {});
   for (const id of SIMPLE_IDS) $(id).value = settings[id];
   for (const k in ADS_IDS) $(ADS_IDS[k]).value = settings.ads[k];
@@ -807,24 +808,47 @@ if ('onpointerrawupdate' in window) {
   document.addEventListener('mousemove', (e) => { const ev = e.getCoalescedEvents?.() || []; if (ev.length > 1) { for (const c of ev) onMove(c); } else onMove(e); });
 }
 document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; if (!locked && game.running) pauseToMenu(); });
-canvas.addEventListener('mousedown', (e) => {
-  if (!locked) return; e.preventDefault();
-  if (e.button === 0) game.firing = true;
-  if (e.button === 2) { if (settings.adsmode === 'hold') game.ads = true; else game.ads = !game.ads; }
-});
-window.addEventListener('mouseup', (e) => { if (e.button === 0) game.firing = false; if (e.button === 2 && settings.adsmode === 'hold') game.ads = false; });
+// ---- key bindings: every action maps to one key code or mouse button ('Mouse0' = left, 'Mouse2' = right)
+const DEFAULT_KEYS = { forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', crouch: 'KeyC', leanL: 'KeyQ', leanR: 'KeyE', walk: 'AltLeft', fire: 'Mouse0', ads: 'Mouse2', reload: 'KeyR', restart: 'Backspace' };
+const KEY_ACTIONS = Object.keys(DEFAULT_KEYS);
+function isDown(action) { return !!keys[settings.keys[action]]; }
+function actionsOf(code) { return KEY_ACTIONS.filter(a => settings.keys[a] === code); }
+function keyName(code) {
+  if (!code) return '—';
+  const m = { Mouse0: 'Mouse L', Mouse1: 'Mouse M', Mouse2: 'Mouse R', Mouse3: 'Mouse 4', Mouse4: 'Mouse 5', ShiftLeft: 'L-Shift', ShiftRight: 'R-Shift', ControlLeft: 'L-Ctrl', ControlRight: 'R-Ctrl', AltLeft: 'L-Alt', AltRight: 'R-Alt', Space: 'Space', Backspace: 'BackSpace', Escape: 'Esc', Tab: 'Tab', CapsLock: 'CapsLock', Enter: 'Enter' };
+  return m[code] || code.replace(/^Key|^Digit|^Arrow/, '') || code;
+}
+function pressCode(code, repeat) {
+  keys[code] = true; if (!game.running) return;
+  for (const act of actionsOf(code)) {
+    switch (act) {
+      case 'fire': game.firing = true; break;
+      case 'ads': if (settings.adsmode === 'hold') game.ads = true; else if (!repeat) game.ads = !game.ads; break;
+      case 'walk': if (!repeat && settings.walkmode === 'toggle') game.walkToggle = !game.walkToggle; break;
+      case 'reload': if (game.combat) startReload(); break;
+      case 'restart': if (!repeat) startRun(); break;
+      case 'leanL': case 'leanR': if (!repeat && settings.leanmode === 'toggle') { const dir = act === 'leanL' ? 1 : -1; game.leanToggle = game.leanToggle === dir ? 0 : dir; } break;
+      case 'crouch': if (!repeat) { if (settings.crouchmode === 'toggle') game.crouchHeld = !game.crouchHeld; else game.crouchHeld = true; } break;
+    }
+  }
+}
+function releaseCode(code) {
+  keys[code] = false;
+  for (const act of actionsOf(code)) {
+    if (act === 'fire') game.firing = false;
+    if (act === 'ads' && settings.adsmode === 'hold') game.ads = false;
+    if (act === 'crouch' && settings.crouchmode === 'hold') game.crouchHeld = false;
+  }
+}
+canvas.addEventListener('mousedown', (e) => { if (!locked) return; e.preventDefault(); pressCode('Mouse' + e.button, false); });
+window.addEventListener('mouseup', (e) => releaseCode('Mouse' + e.button));
 window.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('keydown', (e) => {
-  keys[e.code] = true;
-  if (!game.running) return;
-  if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ControlLeft', 'AltLeft', 'AltRight', 'KeyC', 'KeyQ', 'KeyE', 'KeyR', 'Tab'].includes(e.code)) e.preventDefault();
-  if ((e.code === 'AltLeft' || e.code === 'AltRight') && !e.repeat && settings.walkmode === 'toggle') game.walkToggle = !game.walkToggle;
-  if (e.code === 'KeyR' && game.combat) startReload();
-  if (e.code === 'Backspace') startRun();
-  if ((e.code === 'KeyQ' || e.code === 'KeyE') && !e.repeat && settings.leanmode === 'toggle') { const dir = e.code === 'KeyQ' ? 1 : -1; game.leanToggle = game.leanToggle === dir ? 0 : dir; }
-  if ((e.code === 'KeyC' || e.code === 'ControlLeft') && !e.repeat) { if (settings.crouchmode === 'toggle') game.crouchHeld = !game.crouchHeld; else game.crouchHeld = true; }
+  if (KEYBIND.waiting) return;   // the rebind UI captures this key
+  if (game.running && (actionsOf(e.code).length || ['Space', 'Tab', 'AltLeft', 'AltRight', 'ControlLeft'].includes(e.code))) e.preventDefault();
+  pressCode(e.code, e.repeat);
 });
-window.addEventListener('keyup', (e) => { keys[e.code] = false; if ((e.code === 'KeyC' || e.code === 'ControlLeft') && settings.crouchmode === 'hold') game.crouchHeld = false; });
+window.addEventListener('keyup', (e) => releaseCode(e.code));
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; game.firing = false; });
 
 async function requestLock() {
@@ -838,14 +862,14 @@ function updatePlayer(dt) {
   const crouchT = game.crouchHeld ? 1 : 0; game.crouch += (crouchT - game.crouch) * Math.min(1, dt * MOVE.crouchSpeed);
   game.eyeY = MOVE.eyeStand + (MOVE.eyeCrouch - MOVE.eyeStand) * game.crouch;
   // movement (R6S: no acceleration, sprint only forward, ADS slows, crouch slows)
-  let fx = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), sx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
-  if (keys.ShiftLeft && fx > 0 && game.crouchHeld) game.crouchHeld = false;   // Siege: sprint from crouch stands you up
-  game.sprint = !!keys.ShiftLeft && fx > 0 && !game.ads && game.crouch < 0.5;
+  let fx = (isDown('forward') ? 1 : 0) - (isDown('back') ? 1 : 0), sx = (isDown('right') ? 1 : 0) - (isDown('left') ? 1 : 0);
+  if (isDown('sprint') && fx > 0 && game.crouchHeld) game.crouchHeld = false;   // Siege: sprint from crouch stands you up
+  game.sprint = isDown('sprint') && fx > 0 && !game.ads && game.crouch < 0.5;
   game.moving = fx !== 0 || sx !== 0;
-  game.leanTarget = settings.leanmode === 'toggle' ? game.leanToggle : (keys.KeyQ ? 1 : 0) - (keys.KeyE ? 1 : 0);
+  game.leanTarget = settings.leanmode === 'toggle' ? game.leanToggle : (isDown('leanL') ? 1 : 0) - (isDown('leanR') ? 1 : 0);
   if (game.sprint) { game.leanTarget = 0; game.leanToggle = 0; }   // Siege: sprinting cancels lean
   game.lean += (game.leanTarget - game.lean) * Math.min(1, dt * MOVE.leanSpeed);
-  game.walkSlow = !game.sprint && (settings.walkmode === 'toggle' ? !!game.walkToggle : !!(keys.AltLeft || keys.AltRight));   // Siege "Walk" key (default Alt)
+  game.walkSlow = !game.sprint && (settings.walkmode === 'toggle' ? !!game.walkToggle : isDown('walk'));   // Siege "Walk" key (default Alt)
   if (game.sprint) game.walkToggle = false;
   let speed = game.sprint ? MOVE.sprint : MOVE.walk;
   if (game.crouch > 0.5) speed = MOVE.crouch;
@@ -1184,6 +1208,39 @@ loadSettings(); applyLang(settings.lang || ((navigator.language || '').startsWit
 buildMap('hall'); buildModeList(); updateSensInfo(); showBest();
 for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'walkmode', 'adsspeed', 'slowspeed', 'bots', 'map', 'recoil', 'botsize', 'objects', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
 for (const id of ['difficulty', 'duration', 'difficulty-lab', 'duration-lab', 'objects']) $(id).addEventListener('change', () => { readSettings(); showBest(); });
+// ---- key binding UI (controls tab) + key hints on both panes and the HUD
+const KEYBIND = { waiting: null };
+function buildKeybinds() {
+  const box = $('keybinds'); box.innerHTML = '';
+  for (const act of KEY_ACTIONS) {
+    const row = document.createElement('div'); row.className = 'kb';
+    row.innerHTML = `<span>${t('kb.' + act)}</span><button type="button" data-act="${act}">${keyName(settings.keys[act])}</button>`;
+    row.querySelector('button').addEventListener('click', (ev) => { ev.preventDefault(); startRebind(act, ev.currentTarget); });
+    box.appendChild(row);
+  }
+  renderKeyHints();
+}
+function startRebind(act, btn) {
+  if (KEYBIND.waiting) KEYBIND.waiting.btn.textContent = keyName(settings.keys[KEYBIND.waiting.act]);
+  KEYBIND.waiting = { act, btn }; btn.textContent = t('kb.press'); btn.classList.add('wait');
+}
+function finishRebind(code) {
+  const w = KEYBIND.waiting; if (!w) return; KEYBIND.waiting = null; w.btn.classList.remove('wait');
+  if (code !== 'Escape') { for (const a of KEY_ACTIONS) if (a !== w.act && settings.keys[a] === code) settings.keys[a] = '';   // a key can hold one action
+    settings.keys[w.act] = code; try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {} }
+  buildKeybinds();
+}
+window.addEventListener('keydown', (e) => { if (KEYBIND.waiting) { e.preventDefault(); e.stopImmediatePropagation(); finishRebind(e.code); } }, true);
+window.addEventListener('mousedown', (e) => { if (KEYBIND.waiting && e.target === KEYBIND.waiting.btn) { e.preventDefault(); finishRebind('Mouse' + e.button); } }, true);
+$('keys-reset').addEventListener('click', () => { settings.keys = { ...DEFAULT_KEYS }; try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {} buildKeybinds(); });
+function renderKeyHints() {
+  const k = a => `<kbd>${keyName(settings.keys[a])}</kbd>`;
+  $('keys-combat').innerHTML = [`${k('forward')}${k('left')}${k('back')}${k('right')} ${t('kb.move')}`, `${k('sprint')} ${t('kb.sprint')}`, `${k('crouch')} ${t('kb.crouch')}`, `${k('leanL')}${k('leanR')} ${t('kb.lean')}`, `${k('walk')} ${t('kb.walk')}`, `${k('fire')} ${t('kb.fire')}`, `${k('ads')} ${t('kb.ads')}`, `${k('reload')} ${t('kb.reload')}`, `${k('restart')} ${t('kb.restart')}`, `<kbd>ESC</kbd> ${t('k.menu')}`].map(x => `<div>${x}</div>`).join('');
+  $('keys-lab').innerHTML = [`${k('fire')} ${t('k.hold')}`, `${k('ads')} ${t('kb.ads')}`, `${k('restart')} ${t('kb.restart')}`, `<kbd>ESC</kbd> ${t('k.menu')}`].map(x => `<div>${x}</div>`).join('');
+  const n = a => keyName(settings.keys[a]);
+  $('h-keys').textContent = ` · ${n('forward')}${n('left')}${n('back')}${n('right')} ${t('kb.move')} · ${n('sprint')} ${t('kb.sprint')} · ${n('walk')} ${t('kb.walk')} · ${n('crouch')} ${t('kb.crouch')} · ${n('leanL')}/${n('leanR')} ${t('kb.lean')} · ${n('reload')} ${t('kb.reload')} · ${n('restart')} ${t('kb.restart')} · ESC ${t('k.menu')}`;
+}
+buildKeybinds();
 // MAP COMBAT / DRILLS switch
 function setMenuMode(mm) {
   settings.menuMode = mm; try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {}
@@ -1194,7 +1251,7 @@ function setMenuMode(mm) {
   showBest();
 }
 document.querySelectorAll('.ms').forEach(b => b.addEventListener('click', () => setMenuMode(b.dataset.mm)));
-document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => { settings.lang = b.dataset.lang; applyLang(settings.lang); try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {} buildModeList(); showBest(); }));
+document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => { settings.lang = b.dataset.lang; applyLang(settings.lang); try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {} buildModeList(); buildKeybinds(); showBest(); }));
 setMenuMode(settings.menuMode === 'lab' ? 'lab' : (MODES.find(x => x.id === selectedMode) || {}).group === 'track' ? 'lab' : 'combat');
 $('start').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('again').addEventListener('click', async () => { startRun(); await requestLock(); });

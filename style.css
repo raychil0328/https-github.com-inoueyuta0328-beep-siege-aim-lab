@@ -149,3 +149,14 @@ footer a{color:var(--dim)}
 .lang{position:absolute;top:14px;right:18px;display:flex;gap:4px;z-index:3}
 .lang button{font-family:var(--head);font-size:12px;letter-spacing:.12em;padding:5px 10px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.35);color:#cfd5de;cursor:pointer;border-radius:2px}
 .lang button.on{border-color:var(--accent);color:var(--accent);background:rgba(245,166,35,.1)}
+
+.sightbar{margin:0 0 14px;padding:12px 14px;border:1px solid rgba(245,166,35,.45);background:rgba(245,166,35,.07);border-radius:4px}
+.sightbar label{font-weight:600}
+.keybinds{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin:8px 0 10px}
+.kb{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:var(--text)}
+.kb button{font-family:var(--head);font-size:12px;letter-spacing:.08em;min-width:92px;padding:4px 8px;background:#20262e;border:1px solid var(--line2);border-bottom-width:2px;color:var(--text);border-radius:3px;cursor:pointer}
+.kb button:hover{border-color:var(--accent)}
+.kb button.wait{color:var(--accent);border-color:var(--accent);animation:kbblink .8s infinite}
+@keyframes kbblink{50%{opacity:.45}}
+button.small{font-size:11px;padding:5px 10px}
+@media(max-width:900px){.keybinds{grid-template-columns:1fr}}

@@ -24,7 +24,9 @@ const I18N = {
     'sight.holo': '1.0x Holo A（EOTech 型）', 'sight.holob': '1.0x Holo B（Y5S3 追加型）', 'sight.holoru': '1.0x ロシアンホロ', 'sight.reddot': '1.0x Red Dot A（チューブ型）', 'sight.reddotb': '1.0x Red Dot B（Y5S3 追加型）', 'sight.reflex': '1.0x Reflex A（ドット）', 'sight.reflexb': '1.0x Reflex B（三角）', 'sight.1.5': '1.5x', 'sight.2': '2.0x', 'sight.2.5': '2.5x ACOG', 'sight.3': '3.0x', 'sight.12': '12.0x（CSRX 300）',
     'col.red': '赤', 'col.green': '緑', 'col.blue': '青', 'col.white': '白', 'col.pink': 'ピンク', 'col.yellow': '黄', 'col.cyan': 'シアン', 'col.orange': 'オレンジ',
     'lbl.adsmode': 'ADS 操作', 'lbl.crouchmode': 'しゃがみ操作', 'lbl.leanmode': 'リーン操作 (Q/E)', 'hold': 'ホールド', 'toggle': 'トグル', 'lean.hold': 'ホールド（長押し）', 'lean.toggle': 'トグル（切り替え）', 'lbl.invert': 'マウス反転',
-    'lbl.walkmode': '歩行キー (Alt)', 'lbl.adsspeed': 'ADS 中の移動速度', 'lbl.slowspeed': '歩行 (Alt) の速度', 'k.walk': '歩行（ゆっくり）',
+    'kb.title': 'キーバインド（クリックしてキーまたはマウスボタンを押す · Esc でキャンセル）', 'kb.reset': '既定に戻す', 'kb.press': '入力待ち…',
+    'kb.forward': '前進', 'kb.back': '後退', 'kb.left': '左移動', 'kb.right': '右移動', 'kb.sprint': 'ダッシュ', 'kb.crouch': 'しゃがみ', 'kb.leanL': '左リーン', 'kb.leanR': '右リーン', 'kb.walk': '歩行（ゆっくり）', 'kb.fire': '射撃', 'kb.ads': 'ADS', 'kb.reload': 'リロード', 'kb.restart': 'リスタート', 'kb.move': '移動', 'kb.lean': 'リーン',
+    'lbl.walkmode': '歩行キーの操作', 'lbl.adsspeed': 'ADS 中の移動速度', 'lbl.slowspeed': '歩行キーの速度', 'k.walk': '歩行（ゆっくり）',
     'note.move': '移動速度（3スピード OP・計測値）: 通常移動 3.10 m/s · ダッシュ 5.00 m/s · しゃがみ 1.55 m/s<br>ADS 中の移動速度と Alt 歩行の速度は公開値がないため上で選択可（既定: ADS 2.85 m/s = 1スピード OP の通常移動と同じ · 歩行 1.55 m/s）<br>武器: 汎用 AR · 800 RPM · 30 発 · 胴 40 / 頭 100 ダメージ · リロード 2.4s · リコイルは視点が跳ね上がり自動復帰なし（シージ準拠）',
     'formula': `出典: Ubisoft 公式 "FOV and Input Sensitivity"
 腰だめ  yaw[deg/count] = 水平感度 × MouseSensitivityMultiplierUnit × (180/π) / 200
@@ -76,7 +78,9 @@ cm/360  = 2.54 × 360 / (yaw × DPI)`,
     'sight.holo': '1.0x Holo A (EOTech style)', 'sight.holob': '1.0x Holo B (Y5S3)', 'sight.holoru': '1.0x Russian Holo', 'sight.reddot': '1.0x Red Dot A (tube)', 'sight.reddotb': '1.0x Red Dot B (Y5S3)', 'sight.reflex': '1.0x Reflex A (dot)', 'sight.reflexb': '1.0x Reflex B (chevron)', 'sight.1.5': '1.5x', 'sight.2': '2.0x', 'sight.2.5': '2.5x ACOG', 'sight.3': '3.0x', 'sight.12': '12.0x (CSRX 300)',
     'col.red': 'Red', 'col.green': 'Green', 'col.blue': 'Blue', 'col.white': 'White', 'col.pink': 'Pink', 'col.yellow': 'Yellow', 'col.cyan': 'Cyan', 'col.orange': 'Orange',
     'lbl.adsmode': 'ADS', 'lbl.crouchmode': 'Crouch', 'lbl.leanmode': 'Lean (Q/E)', 'hold': 'Hold', 'toggle': 'Toggle', 'lean.hold': 'Hold', 'lean.toggle': 'Toggle', 'lbl.invert': 'Invert mouse',
-    'lbl.walkmode': 'Walk key (Alt)', 'lbl.adsspeed': 'Move speed while ADS', 'lbl.slowspeed': 'Walk (Alt) speed', 'k.walk': 'Walk (slow)',
+    'kb.title': 'Key bindings (click, then press a key or mouse button · Esc to cancel)', 'kb.reset': 'Reset to defaults', 'kb.press': 'Press a key…',
+    'kb.forward': 'Forward', 'kb.back': 'Back', 'kb.left': 'Left', 'kb.right': 'Right', 'kb.sprint': 'Sprint', 'kb.crouch': 'Crouch', 'kb.leanL': 'Lean left', 'kb.leanR': 'Lean right', 'kb.walk': 'Walk (slow)', 'kb.fire': 'Fire', 'kb.ads': 'ADS', 'kb.reload': 'Reload', 'kb.restart': 'Restart', 'kb.move': 'Move', 'kb.lean': 'Lean',
+    'lbl.walkmode': 'Walk key', 'lbl.adsspeed': 'Move speed while ADS', 'lbl.slowspeed': 'Walk speed', 'k.walk': 'Walk (slow)',
     'note.move': 'Movement (3-speed operator, measured): move 3.10 m/s · sprint 5.00 m/s · crouch 1.55 m/s<br>No published value exists for ADS move speed or Alt walk speed, so both are selectable above (default: ADS 2.85 m/s = a 1-speed operator\'s move speed · walk 1.55 m/s)<br>Weapon: generic AR · 800 RPM · 30 rounds · 40 body / 100 head · reload 2.4 s · recoil kicks the view up and never auto-recovers (as in Siege)',
     'formula': `Source: Ubisoft "FOV and Input Sensitivity"
 Hipfire yaw[deg/count] = H-sens × MouseSensitivityMultiplierUnit × (180/π) / 200

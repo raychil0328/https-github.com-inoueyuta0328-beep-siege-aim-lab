@@ -30,7 +30,7 @@
   <div id="hud-br" class="combat-only"><span class="lbl">AR · 800RPM</span><span id="h-ammo">30 / ∞</span></div>
   <div id="hud-bottom">
     <span id="h-mode"></span> · <span id="h-sens"></span> · <span id="h-zoom"></span>
-    <span class="dim" data-i18n="hud.keys"></span>
+    <span class="dim" id="h-keys"></span>
   </div>
   <div id="hit-flash"></div>
 </div>
@@ -106,17 +106,7 @@
       </div>
       <div id="best" class="best"></div>
       <button id="start" class="primary"><span class="ico">▶</span> DEPLOY<small data-i18n="start.sub"></small></button>
-      <div class="keys">
-        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> <span data-i18n="k.move"></span></div>
-        <div><kbd>Shift</kbd> <span data-i18n="k.sprint"></span></div>
-        <div><kbd>C</kbd>/<kbd>Ctrl</kbd> <span data-i18n="k.crouch"></span></div>
-        <div><kbd>Q</kbd><kbd>E</kbd> <span data-i18n="k.lean"></span></div>
-        <div><kbd>Alt</kbd> <span data-i18n="k.walk"></span></div>
-        <div><kbd data-i18n="k.rmb"></kbd> <span data-i18n="k.ads"></span></div>
-        <div><kbd>R</kbd> <span data-i18n="k.reload"></span></div>
-        <div><kbd>BackSpace</kbd> <span data-i18n="k.restart"></span></div>
-        <div><kbd>ESC</kbd> <span data-i18n="k.menu"></span></div>
-      </div>
+      <div class="keys" id="keys-combat"></div>
     </section>
 
     <section id="pane-lab" class="panel modes-panel hidden">
@@ -138,42 +128,12 @@
       </div>
       <div id="best-lab" class="best"></div>
       <button id="start-lab" class="primary"><span class="ico">▶</span> START<small data-i18n="start.sub"></small></button>
-      <div class="keys">
-        <div><kbd data-i18n="k.lmb"></kbd> <span data-i18n="k.hold"></span></div>
-        <div><kbd data-i18n="k.rmb"></kbd> <span data-i18n="k.ads"></span></div>
-        <div><kbd>BackSpace</kbd> <span data-i18n="k.restart"></span></div>
-        <div><kbd>ESC</kbd> <span data-i18n="k.menu"></span></div>
-      </div>
+      <div class="keys" id="keys-lab"></div>
     </section>
 
     <section class="panel">
       <h2><span class="num">02</span><span data-i18n="common.h2"></span><small data-i18n="common.h2s"></small></h2>
-      <div class="tabs">
-        <button class="on" data-tab="tab-sens" data-i18n="tab.sens"></button>
-        <button data-tab="tab-ads" data-i18n="tab.ads"></button>
-        <button data-tab="tab-ctl" data-i18n="tab.ctl"></button>
-        <button data-tab="tab-formula" data-i18n="tab.formula"></button>
-      </div>
-      <div id="tab-sens" class="tabpane">
-        <div class="grid">
-          <label><span data-i18n="lbl.dpi"></span> <input id="dpi" type="number" min="100" max="32000" step="50" value="800"></label>
-          <label><span data-i18n="lbl.fov"></span> <input id="fov" type="number" min="60" max="90" step="1" value="90"></label>
-          <label><span data-i18n="lbl.sensH"></span> <input id="sensH" type="number" min="1" max="100" step="1" value="10"></label>
-          <label><span data-i18n="lbl.sensV"></span> <input id="sensV" type="number" min="1" max="100" step="1" value="10"></label>
-          <label title="GameSettings.ini: MouseSensitivityMultiplierUnit">MouseSensitivityMultiplierUnit <input id="msmu" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
-          <label title="GameSettings.ini: XFactorAiming">XFactorAiming <input id="xfactor" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
-        </div>
-      </div>
-      <div id="tab-ads" class="tabpane hidden">
-        <div class="grid ads">
-          <label>1.0x Holo / Red Dot <input id="ads1" type="number" min="1" max="100" value="50"></label>
-          <label>1.5x <input id="ads15" type="number" min="1" max="100" value="50"></label>
-          <label>2.0x <input id="ads2" type="number" min="1" max="100" value="50"></label>
-          <label>2.5x ACOG <input id="ads25" type="number" min="1" max="100" value="50"></label>
-          <label>3.0x <input id="ads3" type="number" min="1" max="100" value="50"></label>
-          <label>12.0x Glaz / Kali <input id="ads12" type="number" min="1" max="100" value="50"></label>
-        </div>
-        <div class="row">
+        <div class="row sightbar">
           <label><span data-i18n="lbl.sight"></span> <select id="sight">
             <option value="holo" data-i18n="sight.holo"></option>
             <option value="holob" data-i18n="sight.holob"></option>
@@ -199,6 +159,31 @@
             <option value="#ff8c2b" data-i18n="col.orange"></option>
           </select></label>
         </div>
+      <div class="tabs">
+        <button class="on" data-tab="tab-sens" data-i18n="tab.sens"></button>
+        <button data-tab="tab-ads" data-i18n="tab.ads"></button>
+        <button data-tab="tab-ctl" data-i18n="tab.ctl"></button>
+        <button data-tab="tab-formula" data-i18n="tab.formula"></button>
+      </div>
+      <div id="tab-sens" class="tabpane">
+        <div class="grid">
+          <label><span data-i18n="lbl.dpi"></span> <input id="dpi" type="number" min="100" max="32000" step="50" value="800"></label>
+          <label><span data-i18n="lbl.fov"></span> <input id="fov" type="number" min="60" max="90" step="1" value="90"></label>
+          <label><span data-i18n="lbl.sensH"></span> <input id="sensH" type="number" min="1" max="100" step="1" value="10"></label>
+          <label><span data-i18n="lbl.sensV"></span> <input id="sensV" type="number" min="1" max="100" step="1" value="10"></label>
+          <label title="GameSettings.ini: MouseSensitivityMultiplierUnit">MouseSensitivityMultiplierUnit <input id="msmu" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
+          <label title="GameSettings.ini: XFactorAiming">XFactorAiming <input id="xfactor" type="number" min="0.0001" max="1" step="0.0001" value="0.02"></label>
+        </div>
+      </div>
+      <div id="tab-ads" class="tabpane hidden">
+        <div class="grid ads">
+          <label>1.0x Holo / Red Dot <input id="ads1" type="number" min="1" max="100" value="50"></label>
+          <label>1.5x <input id="ads15" type="number" min="1" max="100" value="50"></label>
+          <label>2.0x <input id="ads2" type="number" min="1" max="100" value="50"></label>
+          <label>2.5x ACOG <input id="ads25" type="number" min="1" max="100" value="50"></label>
+          <label>3.0x <input id="ads3" type="number" min="1" max="100" value="50"></label>
+          <label>12.0x Glaz / Kali <input id="ads12" type="number" min="1" max="100" value="50"></label>
+        </div>
       </div>
       <div id="tab-ctl" class="tabpane hidden">
         <div class="grid">
@@ -214,6 +199,9 @@
           </select></label>
           <label class="chk"><span data-i18n="lbl.invert"></span><input id="invert" type="checkbox"></label>
         </div>
+        <h3 data-i18n="kb.title"></h3>
+        <div id="keybinds" class="keybinds"></div>
+        <button id="keys-reset" type="button" class="secondary small" data-i18n="kb.reset"></button>
         <div class="note" data-i18n-html="note.move"></div>
       </div>
       <div id="tab-formula" class="tabpane hidden">
