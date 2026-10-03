@@ -40,6 +40,15 @@
 - 検証項目の例: 全マップ × 密度 3 段階で、`posFree(spawn)`、ドアが塞がれていないか、スポーンからの 0.25 m 格子 flood fill で到達率 100%、BOT 10 体の最小間隔、3000 ステップ `bot.update` 後に stuck / 壁内の BOT がゼロ、40 回キル→リスポーンで死亡地点から ≥ 4.7 m。
 - キーバインド: 再割当・競合解消・Esc キャンセル・リロード後の永続化・Mouse4 割当を確認済み。
 
+## メニューのデザイン・画像・追加機能
+- デザイン: 暗いスレートの作戦ボードに紙のシートをテープで貼った見た目。トークンは `style.css` 冒頭（`--board` `--paper` `--ink` `--orange` `--slate` `--tape`）。フォントは Saira Stencil One（ロゴ・見出しボタン）/ BIZ UDPGothic（本文）/ IBM Plex Mono（数値・HUD）の 3 つだけ。HUD のレイアウトは変えていない。
+- AI っぽさを避けるルール: 紫/青グラデ・ガラス風・角丸カード・絵文字アイコン・装飾用の 01/02 番号・「〜 — 〜」型のコピーは使わない。テープやスタンプは意味がある所だけ（自己ベスト更新のスタンプなど）。
+- 画像: `img/mode-<id>.webp`（256px）, `img/guide-*.webp`（440px）, `img/ogp.png`（1200×630）。元 PNG は Codex CLI（デスクトップアプリ同梱の `codex.exe exec`、image_generation 機能）で生成し、`python tools/build_images.py <PNG フォルダ>` で縮小・余白トリム・OGP 合成。1 枚 3〜6 KB。
+- 初回ガイド `#guide`: 4 ステップ。`localStorage['sal-guide-seen']` が無ければ自動表示、ヘッダーの「使い方」で再表示。
+- スコア履歴: `sal-hist-…`（`bestKey()` の `sal-best-` を置き換えたキー）に直近 30 回 `{s,a,d}`。結果画面とベスト行にインライン SVG の折れ線。
+- X 共有: `https://x.com/intent/post` を開くだけ（SDK なし）。完走時のみ表示。
+- OGP: `og:image` は Xserver の絶対 URL（`https://xs288120.xsrv.jp/R6SAIM/img/ogp.png`）。
+
 ## 任意機能（config.js）
 - `goatcounter`: GoatCounter サイトコード。PV / ユニーク + プレイ開始イベント `run/combat/<map>`, `run/<drill>`。
 - `donate`: 支援リンク（フッターとリザルトに表示）。空なら何も読み込まれない。

@@ -934,7 +934,7 @@ function buildModeList() {
     const box = $('modes-' + g); box.innerHTML = '';
     for (const m of MODES.filter(x => x.group === g)) {
       const b = document.createElement('button'); b.className = 'mode' + (m.id === selectedMode ? ' sel' : ''); b.dataset.id = m.id;
-      b.innerHTML = `<b>${m.name}</b><span>${m.desc}</span><em class="tag">${m.tag}</em>`;
+      b.innerHTML = `<img src="img/mode-${m.id}.webp" alt="" width="64" height="64" decoding="async"><b>${m.name}</b><span>${m.desc}</span><em class="tag">${m.tag}</em>`;
       b.onclick = () => { selectedMode = m.id; settings.mode = m.id; buildModeList(); showBest(); };
       box.appendChild(b);
     }
@@ -949,7 +949,35 @@ function showBest() {
   let v = null; try { v = JSON.parse(localStorage.getItem(bestKey())); } catch (e) {}
   const m = MODES.find(x => x.id === selectedMode);
   const nm = isLab() ? m.name : (MAPS[settings.map] || MAPS.ware).name;
-  $(isLab() ? 'best-lab' : 'best').innerHTML = v ? `<b>BEST</b> ${nm} · ${curDiffText()} · ${curDur()}s — ${t('best.score')} <b>${v.score}</b>${v.acc != null ? ` · ${v.acc.toFixed(1)}%` : ''}` : `<b>BEST</b> ${nm} — ${t('best.none')}`;
+  const h = loadHist();
+  $(isLab() ? 'best-lab' : 'best').innerHTML = (v ? `<b>BEST</b> ${nm} · ${curDiffText()} · ${curDur()}s — ${t('best.score')} <b>${v.score}</b>${v.acc != null ? ` · ${v.acc.toFixed(1)}%` : ''}` : `<b>BEST</b> ${nm} — ${t('best.none')}`)
+    + (h.length > 1 ? `<span class="hist-mini" title="${t('hist.title')}">${histSVG(h, 120, 26)}</span>` : '');
+}
+// ---- score history (last HIST_MAX completed runs per mode / map / difficulty / duration)
+const HIST_MAX = 30;
+function histKey() { return bestKey().replace('sal-best-', 'sal-hist-'); }
+function loadHist() { try { const a = JSON.parse(localStorage.getItem(histKey())); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+function pushHist(score, acc) {
+  const h = loadHist(); h.push({ s: score, a: acc == null ? null : +acc.toFixed(1), d: Date.now() });
+  try { localStorage.setItem(histKey(), JSON.stringify(h.slice(-HIST_MAX))); } catch (e) {}
+}
+// Inline SVG line chart: no library, drawn once per results screen.
+function histSVG(h, w, ht, axis) {
+  const xs = h.map(r => r.s), lo = Math.min(...xs), hi = Math.max(...xs), span = hi - lo || 1, pad = 3;
+  const px = i => pad + (h.length === 1 ? (w - 2 * pad) / 2 : i * (w - 2 * pad) / (h.length - 1));
+  const py = v => ht - pad - (v - lo) / span * (ht - 2 * pad);
+  const pts = h.map((r, i) => `${px(i).toFixed(1)},${py(r.s).toFixed(1)}`).join(' ');
+  const bi = xs.indexOf(hi), li = h.length - 1;
+  return `<svg viewBox="0 0 ${w} ${ht}" width="${w}" height="${ht}" aria-hidden="true">`
+    + (axis ? `<line x1="${pad}" y1="${py(hi)}" x2="${w - pad}" y2="${py(hi)}" class="hist-best"/>` : '')
+    + `<polyline points="${pts}" class="hist-line"/>`
+    + `<circle cx="${px(bi)}" cy="${py(hi)}" r="2.6" class="hist-top"/><circle cx="${px(li)}" cy="${py(xs[li])}" r="3" class="hist-last"/></svg>`;
+}
+// ---- share to X (plain intent URL, no SDK)
+function shareText(score, acc) {
+  const what = game.combat ? `${t('mode.combat')} / ${MAP.name}` : game.mode.name;
+  return t('share.text').replace('{mode}', what).replace('{diff}', curDiffText()).replace('{dur}', game.dur).replace('{score}', score)
+    .replace('{acc}', acc == null ? '' : ` / ${t('share.acc')} ${acc.toFixed(1)}%`);
 }
 function startRun() {
   readSettings();
@@ -983,9 +1011,20 @@ function showResults(complete) {
   let best = null; try { best = JSON.parse(localStorage.getItem(bestKey())); } catch (e) {}
   let isBest = false;
   if (complete && (!best || score > best.score)) { isBest = true; try { localStorage.setItem(bestKey(), JSON.stringify({ score, acc })); } catch (e) {} }
-  $('results-score').innerHTML = `${score}${isBest ? '<small>★ NEW BEST</small>' : ''}`;
+  if (complete) pushHist(score, acc);
+  $('results-score').textContent = score;
+  $('results-stamp').classList.toggle('hidden', !isBest);
   $('results-title').textContent = `${game.combat ? MAP.name : game.mode.name} · ${curDiffText()} · ${game.dur}s` + (complete ? '' : t('res.abort'));
   $('results-body').innerHTML = rows.map(([k, v]) => `<div class="r"><span>${k}</span><b>${v}</b></div>`).join('') + `<div class="r"><span>${t('res.fps')}</span><b>${fps.avg.toFixed(0)}</b></div>`;
+  const h = loadHist();
+  $('results-hist').innerHTML = h.length > 1
+    ? `<div class="hist-head"><span>${t('hist.title')}</span><small>${t('hist.n').replace('{n}', h.length)}</small></div>${histSVG(h, 300, 46, true)}`
+    : `<div class="hist-head"><span>${t('hist.title')}</span><small>${t('hist.first')}</small></div>`;
+  $('share-x').classList.toggle('hidden', !complete);
+  $('share-x').onclick = () => {
+    const url = location.origin + location.pathname;
+    window.open(`https://x.com/intent/post?text=${encodeURIComponent(shareText(score, acc))}&url=${encodeURIComponent(url)}`, '_blank', 'noopener,width=600,height=500');
+  };
   $('results').classList.remove('hidden'); showBest();
 }
 // ---------------------------------------------------------------- sights
@@ -1251,12 +1290,35 @@ function setMenuMode(mm) {
   showBest();
 }
 document.querySelectorAll('.ms').forEach(b => b.addEventListener('click', () => setMenuMode(b.dataset.mm)));
-document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => { settings.lang = b.dataset.lang; applyLang(settings.lang); try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {} buildModeList(); buildKeybinds(); showBest(); }));
+document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => { settings.lang = b.dataset.lang; applyLang(settings.lang); try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {} buildModeList(); buildKeybinds(); showBest(); guideGo(GUIDE.i); }));
 setMenuMode(settings.menuMode === 'lab' ? 'lab' : (MODES.find(x => x.id === selectedMode) || {}).group === 'track' ? 'lab' : 'combat');
 $('start').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('again').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('start-lab').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('close-results').addEventListener('click', () => { $('results').classList.add('hidden'); });
+// ---- first-visit guide (4 short steps, reopen from the header)
+const GUIDE = { i: 0, n: document.querySelectorAll('#guide .g-step').length };
+function guideGo(i) {
+  GUIDE.i = Math.max(0, Math.min(GUIDE.n - 1, i));
+  document.querySelectorAll('#guide .g-step').forEach((s, k) => s.classList.toggle('hidden', k !== GUIDE.i));
+  document.querySelectorAll('#guide .g-dots i').forEach((d, k) => d.classList.toggle('on', k === GUIDE.i));
+  $('g-prev').disabled = GUIDE.i === 0;
+  $('g-next').textContent = t(GUIDE.i === GUIDE.n - 1 ? 'guide.done' : 'guide.next');
+}
+function guideOpen() { document.querySelectorAll('#guide img[data-src]').forEach(i => { i.src = i.dataset.src; i.removeAttribute('data-src'); }); guideGo(0); $('guide').classList.remove('hidden'); $('g-next').focus(); }
+function guideClose() { $('guide').classList.add('hidden'); try { localStorage.setItem('sal-guide-seen', '1'); } catch (e) {} }
+$('open-guide').addEventListener('click', guideOpen);
+$('g-prev').addEventListener('click', () => guideGo(GUIDE.i - 1));
+$('g-next').addEventListener('click', () => GUIDE.i === GUIDE.n - 1 ? guideClose() : guideGo(GUIDE.i + 1));
+$('g-skip').addEventListener('click', guideClose);
+$('guide').addEventListener('click', (e) => { if (e.target.id === 'guide') guideClose(); });
+document.querySelectorAll('#guide [data-pick]').forEach(b => b.addEventListener('click', () => { setMenuMode(b.dataset.pick); guideGo(GUIDE.i + 1); }));
+window.addEventListener('keydown', (e) => {
+  if ($('guide').classList.contains('hidden')) return;
+  if (e.key === 'Escape') guideClose(); else if (e.key === 'ArrowRight') $('g-next').click(); else if (e.key === 'ArrowLeft') guideGo(GUIDE.i - 1);
+});
+let guideSeen = false; try { guideSeen = !!localStorage.getItem('sal-guide-seen'); } catch (e) {}
+if (!guideSeen) guideOpen();
 canvas.addEventListener('click', async () => { if (game.running && !locked) await requestLock(); });
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b)); document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('hidden', p.id !== b.dataset.tab)); }));
 game.aimFov = settings.fov;

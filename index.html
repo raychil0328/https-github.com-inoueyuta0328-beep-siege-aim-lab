@@ -5,8 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SIEGE AIM TRAINER — R6S Aim Trainer</title>
 <meta name="description" content="R6S(レインボーシックス シージ)の感度・ADS倍率・移動・リコイルを再現したブラウザ動作のエイムトレーナー / Browser aim trainer with exact R6S sensitivity, movement and recoil">
+<meta property="og:type" content="website">
+<meta property="og:title" content="SIEGE AIM TRAINER — R6S Aim Trainer">
+<meta property="og:description" content="マッチング待ちの数分で。R6S の感度をそのまま入れて、ブラウザで即起動するエイム練習。マップ戦とドリル。">
+<meta property="og:url" content="https://xs288120.xsrv.jp/R6SAIM/">
+<meta property="og:image" content="https://xs288120.xsrv.jp/R6SAIM/img/ogp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#1d262d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23f2efe6'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%231b1d1f' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23e8590c'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500&family=Saira+Stencil+One&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -38,27 +49,32 @@
 <!-- MENU -->
 <div id="menu">
   <div class="bg"></div>
-  <div class="lang"><button data-lang="ja">日本語</button><button data-lang="en">English</button></div>
   <header>
-    <div class="logo"><span class="brand">SIEGE</span><span class="sep"></span>AIM TRAINER</div>
-    <div class="sub" data-i18n="hdr.sub"></div>
-    <div class="chips"><span>FULLSCREEN</span><span>RAW INPUT 8000Hz</span><span>UNCAPPED FPS</span><span>R6S SENS EXACT</span></div>
+    <div class="title-strip">
+      <div class="logo"><span class="brand">SIEGE</span> AIM TRAINER</div>
+      <div class="sub" data-i18n="hdr.sub"></div>
+      <div class="spec" data-i18n="hdr.spec"></div>
+    </div>
+    <div class="tools">
+      <button id="open-guide" type="button" class="secondary" data-i18n="hdr.guide"></button>
+      <div class="lang"><button data-lang="ja">日本語</button><button data-lang="en">English</button></div>
+    </div>
   </header>
 
   <nav class="modeswitch">
     <button id="ms-combat" class="ms on" data-mm="combat">
-      <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M8 54V26l24-16 24 16v28H40V38H24v16Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="32" cy="28" r="6" fill="none" stroke="currentColor" stroke-width="3"/><path d="M32 18v4M32 34v4M22 28h4M38 28h4" stroke="currentColor" stroke-width="3"/></svg>
+      <img src="img/mode-combat.webp" alt="" width="72" height="72" decoding="async">
       <span class="ms-t" data-i18n="ms.combat"></span><span class="ms-d" data-i18n="ms.combat.d"></span>
     </button>
     <button id="ms-lab" class="ms" data-mm="lab">
-      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="22" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="32" cy="32" r="12" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="32" cy="32" r="3" fill="currentColor"/><path d="M32 4v8M32 52v8M4 32h8M52 32h8" stroke="currentColor" stroke-width="3"/></svg>
+      <img src="img/mode-vision.webp" alt="" width="72" height="72" decoding="async">
       <span class="ms-t" data-i18n="ms.drills"></span><span class="ms-d" data-i18n="ms.drills.d"></span>
     </button>
   </nav>
 
   <main>
     <section id="pane-combat" class="panel modes-panel">
-      <h2><span class="num">01</span><span data-i18n="combat.h2"></span><small data-i18n="combat.h2s"></small></h2>
+      <h2><span data-i18n="combat.h2"></span><small data-i18n="combat.h2s"></small></h2>
       <div class="grid g3">
         <label><span data-i18n="lbl.map"></span> <select id="map">
           <option value="ware" data-i18n="map.ware"></option>
@@ -105,12 +121,12 @@
         <label><span data-i18n="lbl.ammo"></span> <select id="ammomode"><option value="mag" data-i18n="ammo.mag"></option><option value="infinite" data-i18n="ammo.inf"></option></select></label>
       </div>
       <div id="best" class="best"></div>
-      <button id="start" class="primary"><span class="ico">▶</span> DEPLOY<small data-i18n="start.sub"></small></button>
+      <button id="start" class="primary">DEPLOY<small data-i18n="start.sub"></small></button>
       <div class="keys" id="keys-combat"></div>
     </section>
 
     <section id="pane-lab" class="panel modes-panel hidden">
-      <h2><span class="num">01</span><span data-i18n="drills.h2"></span><small data-i18n="drills.h2s"></small></h2>
+      <h2><span data-i18n="drills.h2"></span><small data-i18n="drills.h2s"></small></h2>
       <div id="modes-track" class="modes"></div>
       <h3 data-i18n="drills.settings"></h3>
       <div class="grid g3">
@@ -127,12 +143,12 @@
         </select></label>
       </div>
       <div id="best-lab" class="best"></div>
-      <button id="start-lab" class="primary"><span class="ico">▶</span> START<small data-i18n="start.sub"></small></button>
+      <button id="start-lab" class="primary">START<small data-i18n="start.sub"></small></button>
       <div class="keys" id="keys-lab"></div>
     </section>
 
     <section class="panel">
-      <h2><span class="num">02</span><span data-i18n="common.h2"></span><small data-i18n="common.h2s"></small></h2>
+      <h2><span data-i18n="common.h2"></span><small data-i18n="common.h2s"></small></h2>
         <div class="row sightbar">
           <label><span data-i18n="lbl.sight"></span> <select id="sight">
             <option value="holo" data-i18n="sight.holo"></option>
@@ -218,15 +234,34 @@
 
   <div id="results" class="hidden">
     <div class="card">
-      <div class="eyebrow">MISSION REPORT</div>
-      <div id="results-score" class="score">0</div>
+      <div class="eyebrow">AFTER ACTION REPORT</div>
+      <div class="score-row"><div id="results-score" class="score">0</div><div id="results-stamp" class="stamp hidden" data-i18n="res.stamp"></div></div>
       <div id="results-title" class="title"></div>
       <div id="results-body"></div>
+      <div id="results-hist" class="hist"></div>
       <div class="actions">
-        <button id="again" class="primary"><span class="ico">↻</span> REDEPLOY</button>
+        <button id="again" class="primary">REDEPLOY</button>
+        <button id="share-x" type="button" class="secondary" data-i18n="share.btn"></button>
         <button id="close-results" class="secondary" data-i18n="res.back"></button>
       </div>
       <a id="donate-results" class="donate hidden" href="#" target="_blank" rel="noopener"></a>
+    </div>
+  </div>
+
+  <div id="guide" class="hidden" role="dialog" aria-modal="true" aria-labelledby="g-title">
+    <div class="sheet">
+      <div class="g-top"><b id="g-title" data-i18n="guide.title"></b><button id="g-skip" type="button" class="linkbtn" data-i18n="guide.skip"></button></div>
+      <div class="g-step">
+        <h3 data-i18n="guide.s1.h"></h3><p data-i18n="guide.s1.p"></p>
+        <div class="g-pick">
+          <button type="button" data-pick="combat"><img data-src="img/mode-combat.webp" alt="" width="120" height="120"><b data-i18n="guide.s1.combat"></b><span data-i18n="guide.s1.combat.d"></span></button>
+          <button type="button" data-pick="lab"><img data-src="img/mode-track.webp" alt="" width="120" height="120"><b data-i18n="guide.s1.drills"></b><span data-i18n="guide.s1.drills.d"></span></button>
+        </div>
+      </div>
+      <div class="g-step hidden"><img class="g-img" data-src="img/guide-sens.webp" alt="" width="220" height="220"><h3 data-i18n="guide.s2.h"></h3><p data-i18n="guide.s2.p"></p></div>
+      <div class="g-step hidden"><img class="g-img" data-src="img/guide-peek.webp" alt="" width="220" height="220"><h3 data-i18n="guide.s3.h"></h3><p data-i18n="guide.s3.p"></p></div>
+      <div class="g-step hidden"><img class="g-img" data-src="img/guide-ads.webp" alt="" width="220" height="220"><h3 data-i18n="guide.s4.h"></h3><p data-i18n="guide.s4.p"></p></div>
+      <div class="g-nav"><button id="g-prev" type="button" class="secondary" data-i18n="guide.prev"></button><span class="g-dots"><i></i><i></i><i></i><i></i></span><button id="g-next" type="button" class="primary"></button></div>
     </div>
   </div>
 

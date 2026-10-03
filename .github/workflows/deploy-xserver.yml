@@ -34,6 +34,6 @@ jobs:
         run: |
           rsync -rlvz --delete \
             --exclude '.git*' --exclude '.github/' --exclude '.claude/' \
-            --exclude 'CLAUDE.md' --exclude 'README.md' \
+            --exclude 'CLAUDE.md' --exclude 'README.md' --exclude 'tools/' \
             -e "ssh -i ~/.ssh/id_deploy -p $SSH_PORT -o ConnectTimeout=30" \
             ./ "$SSH_USER@$SSH_HOST:$REMOTE_DIR"
