@@ -24,7 +24,8 @@ const I18N = {
     'sight.holo': '1.0x Holo A（EOTech 型）', 'sight.holob': '1.0x Holo B（Y5S3 追加型）', 'sight.holoru': '1.0x ロシアンホロ', 'sight.reddot': '1.0x Red Dot A（チューブ型）', 'sight.reddotb': '1.0x Red Dot B（Y5S3 追加型）', 'sight.reflex': '1.0x Reflex A（ドット）', 'sight.reflexb': '1.0x Reflex B（三角）', 'sight.1.5': '1.5x', 'sight.2': '2.0x', 'sight.2.5': '2.5x ACOG', 'sight.3': '3.0x', 'sight.12': '12.0x（CSRX 300）',
     'col.red': '赤', 'col.green': '緑', 'col.blue': '青', 'col.white': '白', 'col.pink': 'ピンク', 'col.yellow': '黄', 'col.cyan': 'シアン', 'col.orange': 'オレンジ',
     'lbl.adsmode': 'ADS 操作', 'lbl.crouchmode': 'しゃがみ操作', 'lbl.leanmode': 'リーン操作 (Q/E)', 'hold': 'ホールド', 'toggle': 'トグル', 'lean.hold': 'ホールド（長押し）', 'lean.toggle': 'トグル（切り替え）', 'lbl.invert': 'マウス反転',
-    'note.move': '移動速度: 歩行 3.1 m/s · ダッシュ 5.3 m/s · しゃがみ 1.55 m/s · ADS 時 ×0.6（3スピード OP 相当）<br>武器: 汎用 AR · 800 RPM · 30 発 · 胴 40 / 頭 100 ダメージ · リロード 2.4s · リコイルは視点が跳ね上がり自動復帰なし（シージ準拠）',
+    'lbl.walkmode': '歩行キー (Alt)', 'lbl.adsspeed': 'ADS 中の移動速度', 'lbl.slowspeed': '歩行 (Alt) の速度', 'k.walk': '歩行（ゆっくり）',
+    'note.move': '移動速度（3スピード OP・計測値）: 通常移動 3.10 m/s · ダッシュ 5.00 m/s · しゃがみ 1.55 m/s<br>ADS 中の移動速度と Alt 歩行の速度は公開値がないため上で選択可（既定: ADS 2.85 m/s = 1スピード OP の通常移動と同じ · 歩行 1.55 m/s）<br>武器: 汎用 AR · 800 RPM · 30 発 · 胴 40 / 頭 100 ダメージ · リロード 2.4s · リコイルは視点が跳ね上がり自動復帰なし（シージ準拠）',
     'formula': `出典: Ubisoft 公式 "FOV and Input Sensitivity"
 腰だめ  yaw[deg/count] = 水平感度 × MouseSensitivityMultiplierUnit × (180/π) / 200
                         (既定 MSMU=0.02 → 感度1あたり 0.005729°/count)
@@ -36,7 +37,7 @@ cm/360  = 2.54 × 360 / (yaw × DPI)`,
     'st.hip': '腰だめ cm/360', 'st.ads': 'ADS cm/360', 'st.fov': '垂直 FOV → ADS', 'st.fov2': '倍率で縮小',
     'res.back': 'メニューへ戻る',
     'footer': 'SIEGE AIM TRAINER はファンメイドの非公式トレーナーです。Rainbow Six Siege は Ubisoft の商標です。',
-    'hud.keys': ' · WASD 移動 · Shift ダッシュ · C しゃがみ · Q/E リーン · R リロード · BackSpace リスタート · ESC メニュー',
+    'hud.keys': ' · WASD 移動 · Shift ダッシュ · Alt 歩行 · C しゃがみ · Q/E リーン · R リロード · BackSpace リスタート · ESC メニュー',
     'hud.pattern': '湧きパターン',
     'best.score': 'スコア', 'best.none': '記録なし',
     'res.kills': 'キル', 'res.hs': 'ヘッドショット', 'res.acc': '命中率', 'res.dmg': '与ダメージ', 'res.kpm': 'キル/分',
@@ -75,7 +76,8 @@ cm/360  = 2.54 × 360 / (yaw × DPI)`,
     'sight.holo': '1.0x Holo A (EOTech style)', 'sight.holob': '1.0x Holo B (Y5S3)', 'sight.holoru': '1.0x Russian Holo', 'sight.reddot': '1.0x Red Dot A (tube)', 'sight.reddotb': '1.0x Red Dot B (Y5S3)', 'sight.reflex': '1.0x Reflex A (dot)', 'sight.reflexb': '1.0x Reflex B (chevron)', 'sight.1.5': '1.5x', 'sight.2': '2.0x', 'sight.2.5': '2.5x ACOG', 'sight.3': '3.0x', 'sight.12': '12.0x (CSRX 300)',
     'col.red': 'Red', 'col.green': 'Green', 'col.blue': 'Blue', 'col.white': 'White', 'col.pink': 'Pink', 'col.yellow': 'Yellow', 'col.cyan': 'Cyan', 'col.orange': 'Orange',
     'lbl.adsmode': 'ADS', 'lbl.crouchmode': 'Crouch', 'lbl.leanmode': 'Lean (Q/E)', 'hold': 'Hold', 'toggle': 'Toggle', 'lean.hold': 'Hold', 'lean.toggle': 'Toggle', 'lbl.invert': 'Invert mouse',
-    'note.move': 'Movement: walk 3.1 m/s · sprint 5.3 m/s · crouch 1.55 m/s · ADS ×0.6 (3-speed operator)<br>Weapon: generic AR · 800 RPM · 30 rounds · 40 body / 100 head · reload 2.4 s · recoil kicks the view up and never auto-recovers (as in Siege)',
+    'lbl.walkmode': 'Walk key (Alt)', 'lbl.adsspeed': 'Move speed while ADS', 'lbl.slowspeed': 'Walk (Alt) speed', 'k.walk': 'Walk (slow)',
+    'note.move': 'Movement (3-speed operator, measured): move 3.10 m/s · sprint 5.00 m/s · crouch 1.55 m/s<br>No published value exists for ADS move speed or Alt walk speed, so both are selectable above (default: ADS 2.85 m/s = a 1-speed operator\'s move speed · walk 1.55 m/s)<br>Weapon: generic AR · 800 RPM · 30 rounds · 40 body / 100 head · reload 2.4 s · recoil kicks the view up and never auto-recovers (as in Siege)',
     'formula': `Source: Ubisoft "FOV and Input Sensitivity"
 Hipfire yaw[deg/count] = H-sens × MouseSensitivityMultiplierUnit × (180/π) / 200
                         (default MSMU=0.02 → 0.005729°/count per sens unit)
@@ -87,7 +89,7 @@ cm/360  = 2.54 × 360 / (yaw × DPI)`,
     'st.hip': 'Hipfire cm/360', 'st.ads': 'ADS cm/360', 'st.fov': 'Vertical FOV → ADS', 'st.fov2': 'reduced by zoom',
     'res.back': 'Back to menu',
     'footer': 'SIEGE AIM TRAINER is an unofficial fan-made trainer. Rainbow Six Siege is a trademark of Ubisoft.',
-    'hud.keys': ' · WASD move · Shift sprint · C crouch · Q/E lean · R reload · BackSpace restart · ESC menu',
+    'hud.keys': ' · WASD move · Shift sprint · Alt walk · C crouch · Q/E lean · R reload · BackSpace restart · ESC menu',
     'hud.pattern': 'spawn pattern',
     'best.score': 'score', 'best.none': 'no record',
     'res.kills': 'Kills', 'res.hs': 'Headshots', 'res.acc': 'Accuracy', 'res.dmg': 'Damage', 'res.kpm': 'Kills/min',

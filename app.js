@@ -40,10 +40,11 @@ const R6 = {
 
 // ---------------------------------------------------------------- R6S movement / weapon model (approximations of live values)
 const MOVE = {
-  walk: 3.1,            // m/s (3-speed operator)
-  sprint: 5.3,
+  walk: 3.1,            // m/s – 3-speed operator, no grip/pistol boost (community measurement, Steam guide "Movement Speeds")
+  sprint: 5.0,          // m/s – 3-speed sprint (5.25 with the 5% boost)
   crouch: 1.55,
-  adsMul: 0.6,          // ADS walking speed multiplier
+  slow: 1.55,           // m/s – Walk key (Alt): no published figure; roughly crouch-walk pace. Adjustable in settings.
+  adsMul: 0.92,         // ADS move = walk × this. No published figure; default puts 3-speed ADS at 1-speed walking pace (2.85 m/s). Adjustable.
   backMul: 0.8,
   strafeMul: 0.9,
   eyeStand: 1.6, eyeCrouch: 1.05,
@@ -79,7 +80,7 @@ function loadSettings() {
   settings.ads = Object.assign({ '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 }, settings.ads || {});
   for (const id of SIMPLE_IDS) $(id).value = settings[id];
   for (const k in ADS_IDS) $(ADS_IDS[k]).value = settings.ads[k];
-  $('sight').value = settings.sight || '2.5'; $('reticle').value = settings.reticle || '#ff2b2b'; $('ammomode').value = settings.ammomode || 'mag'; $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle'; $('leanmode').value = settings.leanmode || 'hold'; $('bots').value = String(settings.bots ?? 'auto'); $('map').value = MAPS[settings.map] && settings.map !== 'hall' ? settings.map : 'ware'; $('recoil').value = String(settings.recoil ?? 1); $('botsize').value = settings.botsize || 'm';
+  $('sight').value = settings.sight || '2.5'; $('reticle').value = settings.reticle || '#ff2b2b'; $('ammomode').value = settings.ammomode || 'mag'; $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle'; $('leanmode').value = settings.leanmode || 'hold'; $('walkmode').value = settings.walkmode || 'hold'; $('adsspeed').value = String(settings.adsspeed ?? 0.92); $('slowspeed').value = String(settings.slowspeed ?? 1.55); $('bots').value = String(settings.bots ?? 'auto'); $('map').value = MAPS[settings.map] && settings.map !== 'hall' ? settings.map : 'ware'; $('recoil').value = String(settings.recoil ?? 1); $('botsize').value = settings.botsize || 'm';
   $('invert').checked = settings.invert;
   $('difficulty').value = String(settings.difficulty); $('duration').value = String(settings.duration);
   $('difficulty-lab').value = String(settings.difficultyLab ?? 1); $('duration-lab').value = String(settings.durationLab ?? 60); $('objects').value = settings.objects || 'large';
@@ -92,7 +93,7 @@ function readSettings() {
   settings.msmu = clamp(+$('msmu').value || 0.02, 0.0001, 1);
   settings.xfactor = clamp(+$('xfactor').value || 0.02, 0.0001, 1);
   for (const k in ADS_IDS) settings.ads[k] = clamp(+$(ADS_IDS[k]).value || 50, 1, 100);
-  settings.sight = $('sight').value; settings.scope = SIGHTS[settings.sight].zoom; settings.reticle = $('reticle').value; settings.ammomode = $('ammomode').value; settings.adsmode = $('adsmode').value; settings.crouchmode = $('crouchmode').value; settings.leanmode = $('leanmode').value; settings.bots = $('bots').value; settings.map = $('map').value; settings.recoil = +$('recoil').value; settings.botsize = $('botsize').value; settings.invert = $('invert').checked;
+  settings.sight = $('sight').value; settings.scope = SIGHTS[settings.sight].zoom; settings.reticle = $('reticle').value; settings.ammomode = $('ammomode').value; settings.adsmode = $('adsmode').value; settings.crouchmode = $('crouchmode').value; settings.leanmode = $('leanmode').value; settings.walkmode = $('walkmode').value; settings.adsspeed = +$('adsspeed').value || 0.92; settings.slowspeed = +$('slowspeed').value || 1.55; settings.bots = $('bots').value; settings.map = $('map').value; settings.recoil = +$('recoil').value; settings.botsize = $('botsize').value; settings.invert = $('invert').checked;
   settings.difficulty = +$('difficulty').value; settings.duration = +$('duration').value;
   settings.difficultyLab = +$('difficulty-lab').value; settings.durationLab = +$('duration-lab').value; settings.objects = $('objects').value;
   try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {}
@@ -816,7 +817,8 @@ window.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('keydown', (e) => {
   keys[e.code] = true;
   if (!game.running) return;
-  if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ControlLeft', 'KeyC', 'KeyQ', 'KeyE', 'KeyR', 'Tab'].includes(e.code)) e.preventDefault();
+  if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ControlLeft', 'AltLeft', 'AltRight', 'KeyC', 'KeyQ', 'KeyE', 'KeyR', 'Tab'].includes(e.code)) e.preventDefault();
+  if ((e.code === 'AltLeft' || e.code === 'AltRight') && !e.repeat && settings.walkmode === 'toggle') game.walkToggle = !game.walkToggle;
   if (e.code === 'KeyR' && game.combat) startReload();
   if (e.code === 'Backspace') startRun();
   if ((e.code === 'KeyQ' || e.code === 'KeyE') && !e.repeat && settings.leanmode === 'toggle') { const dir = e.code === 'KeyQ' ? 1 : -1; game.leanToggle = game.leanToggle === dir ? 0 : dir; }
@@ -843,9 +845,12 @@ function updatePlayer(dt) {
   game.leanTarget = settings.leanmode === 'toggle' ? game.leanToggle : (keys.KeyQ ? 1 : 0) - (keys.KeyE ? 1 : 0);
   if (game.sprint) { game.leanTarget = 0; game.leanToggle = 0; }   // Siege: sprinting cancels lean
   game.lean += (game.leanTarget - game.lean) * Math.min(1, dt * MOVE.leanSpeed);
+  game.walkSlow = !game.sprint && (settings.walkmode === 'toggle' ? !!game.walkToggle : !!(keys.AltLeft || keys.AltRight));   // Siege "Walk" key (default Alt)
+  if (game.sprint) game.walkToggle = false;
   let speed = game.sprint ? MOVE.sprint : MOVE.walk;
   if (game.crouch > 0.5) speed = MOVE.crouch;
-  if (game.ads) speed *= MOVE.adsMul;
+  if (game.walkSlow) speed = Math.min(speed, settings.slowspeed || MOVE.slow);
+  if (game.ads) speed *= settings.adsspeed || MOVE.adsMul;
   if (fx < 0) speed *= MOVE.backMul; if (fx === 0 && sx !== 0) speed *= MOVE.strafeMul;
   game.speedNow = game.moving ? speed : 0;
   if (game.moving) {
@@ -926,7 +931,7 @@ function startRun() {
   readSettings();
   game.mode = MODES.find(m => m.id === selectedMode); game.combat = game.mode.group === 'combat'; game.diff = curDiff(); game.dur = curDur();
   Object.assign(game, { t: 0, timeLeft: game.dur, onTargetTime: 0, fireTime: 0, score: 0, hitStreak: 0, shots: 0, hits: 0, headshots: 0, kills: 0, damage: 0,
-    ads: false, adsBlend: 0, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5.5, crouchHeld: false, crouch: 0, lean: 0, leanToggle: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0, killT: 0 }); RECENT.length = 0;
+    ads: false, adsBlend: 0, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5.5, crouchHeld: false, crouch: 0, lean: 0, leanToggle: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0, killT: 0, walkToggle: false, walkSlow: false }); RECENT.length = 0;
   input.dx = input.dy = 0; fps.sum = 0; fps.n = 0;
   buildMap(game.combat ? settings.map : 'hall'); game.targets = []; game.bots = [];
   game.px = MAP.spawn.x; game.pz = MAP.spawn.z; game.yaw = MAP.spawn.yaw;
@@ -1129,7 +1134,7 @@ function frame(now) {
     else { const played = game.dur - game.timeLeft; $('h-acc').textContent = (played > 0 ? game.onTargetTime / played * 100 : 0).toFixed(1) + '%'; }
     $('crosshair').classList.toggle('hit', game.hitMarker > 0); $('hitmark').classList.toggle('on', game.hitMarker > 0); $('hitmark').classList.toggle('head', game.hitHead);
     const km = $('killmsg'); km.classList.toggle('on', game.killT > 0); if (game.killT > 0) { km.textContent = game.killHead ? 'HEADSHOT' : 'KILL'; km.classList.toggle('head', game.killHead); km.style.opacity = Math.min(1, game.killT * 2.5); }
-    const st = `${game.sprint ? 'SPRINT' : game.crouch > 0.5 ? 'CROUCH' : game.moving ? 'WALK' : 'STAND'}${game.lean > 0.3 ? ' · LEAN L' : game.lean < -0.3 ? ' · LEAN R' : ''}`;
+    const st = `${game.sprint ? 'SPRINT' : game.crouch > 0.5 ? 'CROUCH' : game.walkSlow && game.moving ? 'SLOW WALK' : game.moving ? 'MOVE' : 'STAND'}${game.lean > 0.3 ? ' · LEAN L' : game.lean < -0.3 ? ' · LEAN R' : ''}`;
     if (st !== lastHudText) { lastHudText = st; $('h-stance').textContent = st; }
     if (game.timeLeft <= 0) finishRun();
   }
@@ -1177,7 +1182,7 @@ function frame(now) {
 // ---------------------------------------------------------------- boot
 loadSettings(); applyLang(settings.lang || ((navigator.language || '').startsWith('ja') ? 'ja' : 'en')); settings.scope = (SIGHTS[settings.sight] || SIGHTS['2.5']).zoom; selectedMode = MODES.some(m => m.id === settings.mode) ? settings.mode : 'combat';
 buildMap('hall'); buildModeList(); updateSensInfo(); showBest();
-for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'map', 'recoil', 'botsize', 'objects', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
+for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'walkmode', 'adsspeed', 'slowspeed', 'bots', 'map', 'recoil', 'botsize', 'objects', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
 for (const id of ['difficulty', 'duration', 'difficulty-lab', 'duration-lab', 'objects']) $(id).addEventListener('change', () => { readSettings(); showBest(); });
 // MAP COMBAT / DRILLS switch
 function setMenuMode(mm) {
