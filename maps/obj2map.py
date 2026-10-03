@@ -51,19 +51,34 @@ def read_obj(path):
     F = np.where(F > 0, F - 1, len(V) + F)
     return V, F
 
-def subdivide(A, B, C, h, cap=60_000_000):
-    """Split triangles (arrays of shape (n,3)) until every edge < h; return sample points."""
-    pts = []
-    while len(A):
-        e = np.maximum.reduce([np.linalg.norm(B - A, axis=1), np.linalg.norm(C - B, axis=1), np.linalg.norm(A - C, axis=1)])
-        small = e < h
-        pts.append(A[small]); pts.append(B[small]); pts.append(C[small]); pts.append((A[small] + B[small] + C[small]) / 3)
-        A, B, C = A[~small], B[~small], C[~small]
-        if not len(A): break
-        if len(A) * 4 > cap: raise SystemExit('too many subdivisions; use a larger --voxel or --crop')
-        AB, BC, CA = (A + B) / 2, (B + C) / 2, (C + A) / 2
-        A, B, C = np.concatenate([A, AB, CA, AB]), np.concatenate([AB, B, BC, BC]), np.concatenate([CA, BC, C, CA])
-    return np.concatenate(pts) if pts else np.zeros((0, 3))
+def voxelize_tris(A, B, C, occ, org, vx, h, lo_hi, chunk=100_000):
+    """Mark voxels touched by triangles. Triangles are split until edges < h; sub-triangles whose
+    bounding box leaves the grid are pruned at every level, so huge terrain/wall faces stay cheap."""
+    H, W, L = occ.shape; x0, y0, z0 = org; ylo, yhi = lo_hi
+    xmax, zmax = x0 + W * vx, z0 + H * vx
+    def mark(P):
+        gi = ((P[:, 0] - x0) / vx).astype(np.int64); gj = ((P[:, 2] - z0) / vx).astype(np.int64); gk = ((P[:, 1] - y0) / vx).astype(np.int64)
+        ok = (gi >= 0) & (gi < W) & (gj >= 0) & (gj < H) & (gk >= 0) & (gk < L)
+        occ[gj[ok], gi[ok], gk[ok]] = True
+    for s in range(0, len(A), chunk):
+        a, b, c = A[s:s + chunk], B[s:s + chunk], C[s:s + chunk]
+        while len(a):
+            lo = np.minimum(np.minimum(a, b), c); hi = np.maximum(np.maximum(a, b), c)
+            inside = (hi[:, 0] >= x0) & (lo[:, 0] <= xmax) & (hi[:, 2] >= z0) & (lo[:, 2] <= zmax) & (hi[:, 1] >= ylo) & (lo[:, 1] <= yhi)
+            a, b, c = a[inside], b[inside], c[inside]
+            if not len(a): break
+            e = np.maximum(np.maximum(np.linalg.norm(b - a, axis=1), np.linalg.norm(c - b, axis=1)), np.linalg.norm(a - c, axis=1))
+            sm = e < h
+            if sm.any():
+                for P in (a[sm], b[sm], c[sm], (a[sm] + b[sm] + c[sm]) / 3, (a[sm] + b[sm]) / 2, (b[sm] + c[sm]) / 2, (c[sm] + a[sm]) / 2): mark(P)
+            a, b, c = a[~sm], b[~sm], c[~sm]
+            if not len(a): break
+            ab, bc, ca = (a + b) / 2, (b + c) / 2, (c + a) / 2
+            a, b, c = np.concatenate([a, ab, ca, ab]), np.concatenate([ab, b, bc, bc]), np.concatenate([ca, bc, c, ca])
+            if len(a) > 8_000_000:   # keep memory bounded: recurse on halves
+                half = len(a) // 2
+                voxelize_tris(a[half:], b[half:], c[half:], occ, org, vx, h, lo_hi, chunk)
+                a, b, c = a[:half], b[:half], c[:half]
 
 def boxes_from_mask(mask, x0, z0, vx, height_of):
     m = mask.copy(); out = []; H, W = m.shape
@@ -104,18 +119,18 @@ def main():
     A, B, C = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
     ymin = np.minimum.reduce([A[:, 1], B[:, 1], C[:, 1]]); ymax = np.maximum.reduce([A[:, 1], B[:, 1], C[:, 1]])
     keep = (ymax >= fy + a.lo) & (ymin <= fy + a.hi)
+    x0c = x1c = z0c = z1c = None
     if a.crop:
         x0c, x1c, z0c, z1c = map(float, a.crop.split(','))
         cx = (A[:, 0] + B[:, 0] + C[:, 0]) / 3; cz = (A[:, 2] + B[:, 2] + C[:, 2]) / 3
         keep &= (cx >= x0c - 2) & (cx <= x1c + 2) & (cz >= z0c - 2) & (cz <= z1c + 2)
     A, B, C = A[keep], B[keep], C[keep]; log(f'triangles in slab: {len(A):,}')
-    P = subdivide(A, B, C, vx * 0.5); log(f'samples {len(P):,}')
-    P = P[(P[:, 1] >= fy + a.lo) & (P[:, 1] < fy + a.hi)]
-    if a.crop: P = P[(P[:, 0] >= x0c) & (P[:, 0] <= x1c) & (P[:, 2] >= z0c) & (P[:, 2] <= z1c)]
-    x0, z0 = P[:, 0].min(), P[:, 2].min()
-    W = int((P[:, 0].max() - x0) / vx) + 2; H = int((P[:, 2].max() - z0) / vx) + 2; L = int((a.hi - a.lo) / vx) + 1
-    gi = ((P[:, 0] - x0) / vx).astype(np.int32); gj = ((P[:, 2] - z0) / vx).astype(np.int32); gk = ((P[:, 1] - fy - a.lo) / vx).astype(np.int32)
-    occ = np.zeros((H, W, L), bool); occ[gj, gi, np.clip(gk, 0, L - 1)] = True
+    if not a.crop: raise SystemExit('--crop is required for large scenes')
+    ylo, yhi = fy + a.lo, fy + a.hi
+    x0, z0 = x0c, z0c
+    W = int((x1c - x0c) / vx) + 1; H = int((z1c - z0c) / vx) + 1; L = int((a.hi - a.lo) / vx) + 1
+    occ = np.zeros((H, W, L), bool)
+    voxelize_tris(A, B, C, occ, (x0, ylo, z0), vx, vx * 0.5, (ylo, yhi))
     log(f'grid {W}x{H}x{L}')
     # contiguous solid height from the bottom of the slab
     run = np.cumprod(occ, axis=2).sum(axis=2)            # number of contiguous voxels from k=0

@@ -68,7 +68,7 @@ const WEAPON = {
 const settings = {
   dpi: 800, fov: 90, sensH: 10, sensV: 10, msmu: 0.02, xfactor: 0.02,
   ads: { '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 },
-  scope: 2.5, sight: '2.5', reticle: '#ff2b2b', ammomode: 'mag', adsmode: 'hold', crouchmode: 'toggle', leanmode: 'hold', bots: 'auto', map: 'hall', recoil: 1, invert: false,
+  scope: 2.5, sight: '2.5', reticle: '#ff2b2b', ammomode: 'mag', adsmode: 'hold', crouchmode: 'toggle', leanmode: 'hold', bots: 'auto', map: 'hall', recoil: 1, botsize: 'm', invert: false,
   difficulty: 1, duration: 60, mode: 'cqb',
 };
 const ADS_IDS = { '1': 'ads1', '1.5': 'ads15', '2': 'ads2', '2.5': 'ads25', '3': 'ads3', '12': 'ads12' };
@@ -79,7 +79,7 @@ function loadSettings() {
   settings.ads = Object.assign({ '1': 50, '1.5': 50, '2': 50, '2.5': 50, '3': 50, '12': 50 }, settings.ads || {});
   for (const id of SIMPLE_IDS) $(id).value = settings[id];
   for (const k in ADS_IDS) $(ADS_IDS[k]).value = settings.ads[k];
-  $('sight').value = settings.sight || '2.5'; $('reticle').value = settings.reticle || '#ff2b2b'; $('ammomode').value = settings.ammomode || 'mag'; $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle'; $('leanmode').value = settings.leanmode || 'hold'; $('bots').value = String(settings.bots ?? 'auto'); $('map').value = MAPS[settings.map] ? settings.map : 'hall'; $('recoil').value = String(settings.recoil ?? 1);
+  $('sight').value = settings.sight || '2.5'; $('reticle').value = settings.reticle || '#ff2b2b'; $('ammomode').value = settings.ammomode || 'mag'; $('adsmode').value = settings.adsmode; $('crouchmode').value = settings.crouchmode || 'toggle'; $('leanmode').value = settings.leanmode || 'hold'; $('bots').value = String(settings.bots ?? 'auto'); $('map').value = MAPS[settings.map] ? settings.map : 'hall'; $('recoil').value = String(settings.recoil ?? 1); $('botsize').value = settings.botsize || 'm';
   $('invert').checked = settings.invert;
   $('difficulty').value = String(settings.difficulty); $('duration').value = String(settings.duration);
 }
@@ -91,7 +91,7 @@ function readSettings() {
   settings.msmu = clamp(+$('msmu').value || 0.02, 0.0001, 1);
   settings.xfactor = clamp(+$('xfactor').value || 0.02, 0.0001, 1);
   for (const k in ADS_IDS) settings.ads[k] = clamp(+$(ADS_IDS[k]).value || 50, 1, 100);
-  settings.sight = $('sight').value; settings.scope = SIGHTS[settings.sight].zoom; settings.reticle = $('reticle').value; settings.ammomode = $('ammomode').value; settings.adsmode = $('adsmode').value; settings.crouchmode = $('crouchmode').value; settings.leanmode = $('leanmode').value; settings.bots = $('bots').value; settings.map = $('map').value; settings.recoil = +$('recoil').value; settings.invert = $('invert').checked;
+  settings.sight = $('sight').value; settings.scope = SIGHTS[settings.sight].zoom; settings.reticle = $('reticle').value; settings.ammomode = $('ammomode').value; settings.adsmode = $('adsmode').value; settings.crouchmode = $('crouchmode').value; settings.leanmode = $('leanmode').value; settings.bots = $('bots').value; settings.map = $('map').value; settings.recoil = +$('recoil').value; settings.botsize = $('botsize').value; settings.invert = $('invert').checked;
   settings.difficulty = +$('difficulty').value; settings.duration = +$('duration').value;
   try { localStorage.setItem('sal-settings', JSON.stringify(settings)); } catch (e) {}
   updateSensInfo();
@@ -179,6 +179,7 @@ gl.useProgram(prog);
 const U = {}; for (const n of ['uProj', 'uView', 'uModel', 'uColor', 'uGrid', 'uEmis', 'uCam', 'uFog']) U[n] = gl.getUniformLocation(prog, n);
 
 function makeMesh(pos, nrm, idx) {
+  if (idx.length > 65535 || pos.length / 3 > 65535) return makeMesh32(pos, nrm, idx);
   const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
   const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pos), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
@@ -186,6 +187,36 @@ function makeMesh(pos, nrm, idx) {
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
   const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
   gl.bindVertexArray(null); return { vao, n: idx.length };
+}
+function makeMesh32(pos, nrm, idx) {
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, pos instanceof Float32Array ? pos : new Float32Array(pos), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+  const nb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, nb); gl.bufferData(gl.ARRAY_BUFFER, nrm instanceof Float32Array ? nrm : new Float32Array(nrm), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx instanceof Uint32Array ? idx : new Uint32Array(idx), gl.STATIC_DRAW);
+  gl.bindVertexArray(null); return { vao, n: idx.length, u32: true, bufs: [vb, nb, ib] };
+}
+// all props of one kind merged into a single static mesh (one draw call per kind)
+const BOX_FACES = [[[-.5, -.5, .5], [.5, -.5, .5], [.5, .5, .5], [-.5, .5, .5], [0, 0, 1]], [[.5, -.5, -.5], [-.5, -.5, -.5], [-.5, .5, -.5], [.5, .5, -.5], [0, 0, -1]], [[.5, -.5, .5], [.5, -.5, -.5], [.5, .5, -.5], [.5, .5, .5], [1, 0, 0]], [[-.5, -.5, -.5], [-.5, -.5, .5], [-.5, .5, .5], [-.5, .5, -.5], [-1, 0, 0]], [[-.5, .5, .5], [.5, .5, .5], [.5, .5, -.5], [-.5, .5, -.5], [0, 1, 0]]];
+function mergedPropMesh(list) {
+  const n = list.length, P = new Float32Array(n * 60), N = new Float32Array(n * 60), I = new Uint32Array(n * 30);
+  let v = 0, ii = 0;
+  for (const p of list) {
+    for (const f of BOX_FACES) {
+      const base = v / 3;
+      for (let k = 0; k < 4; k++) { const c = f[k]; P[v] = p.x + c[0] * p.w; P[v + 1] = (c[1] + 0.5) * p.h; P[v + 2] = p.z + c[2] * p.d; N[v] = f[4][0]; N[v + 1] = f[4][1]; N[v + 2] = f[4][2]; v += 3; }
+      I[ii++] = base; I[ii++] = base + 1; I[ii++] = base + 2; I[ii++] = base; I[ii++] = base + 2; I[ii++] = base + 3;
+    }
+  }
+  return makeMesh32(P, N, I);
+}
+let STATIC = [];
+function rebuildStatic() {
+  for (const m of STATIC) for (const b of m.mesh.bufs) gl.deleteBuffer(b);
+  STATIC = [];
+  const groups = {}; for (const p of PROPS) (groups[p.kind] = groups[p.kind] || []).push(p);
+  for (const [kind, list] of Object.entries(groups)) STATIC.push({ kind, mesh: mergedPropMesh(list) });
 }
 function boxMesh(inward = false) {
   const P = [], N = [], I = [];
@@ -240,7 +271,7 @@ function modelTRS(x, y, z, sx = 1, sy = 1, sz = 1, lean = 0) {
 }
 function draw(mesh, model, color, grid = 0, emis = 0) {
   gl.uniformMatrix4fv(U.uModel, false, model); gl.uniform3fv(U.uColor, color); gl.uniform1f(U.uGrid, grid); gl.uniform1f(U.uEmis, emis);
-  gl.bindVertexArray(mesh.vao); gl.drawElements(gl.TRIANGLES, mesh.n, gl.UNSIGNED_SHORT, 0);
+  gl.bindVertexArray(mesh.vao); gl.drawElements(gl.TRIANGLES, mesh.n, mesh.u32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, 0);
 }
 
 // ---------------------------------------------------------------- maps
@@ -311,7 +342,10 @@ const MAPS = {
     },
   },
   // ---- Oregon 1F: traced from the r6maps.com floor plan (walls exact, furniture auto-detected, heights estimated) ----
+  // ---- Oregon: real geometry exported from the game files, voxelized to boxes (maps/obj2map.py) ----
+  oregonb:  { name: 'オレゴン 地下', data: 'maps/oregon-b.json', zones: 'dist' },
   oregon1f: { name: 'オレゴン 1F', data: 'maps/oregon-1f.json', zones: 'dist' },
+  oregon2f: { name: 'オレゴン 2F', data: 'maps/oregon-2f.json', zones: 'dist' },
   // ---- Oregon basement (schematic): Laundry / Supply / Blue Bunker / Freezer / Electric / Basement Corridor / Tower stairs ----
   oregon: {
     name: 'オレゴン 地下', room: { xmin: -16, xmax: 16, zmin: -20, zmax: 6, h: 3.2 },
@@ -356,8 +390,8 @@ const MAPS = {
   },
 };
 const MAP_DATA = {};
-async function loadMapData() {
-  for (const [k, m] of Object.entries(MAPS)) if (m.data && !MAP_DATA[k]) { try { MAP_DATA[k] = await (await fetch(m.data)).json(); } catch (e) { console.warn('map load failed', k, e); } }
+async function loadMapData(only) {
+  for (const [k, m] of Object.entries(MAPS)) if (m.data && !MAP_DATA[k] && (!only || k === only)) { try { MAP_DATA[k] = await (await fetch(m.data)).json(); } catch (e) { console.warn('map load failed', k, e); } }
 }
 function buildMap(key) {
   MAP = MAPS[key] || MAPS.hall; PROPS.length = 0; DOORS.length = 0;
@@ -367,34 +401,64 @@ function buildMap(key) {
       ROOM = { xmin: d.bounds[0], xmax: d.bounds[1], zmin: d.bounds[2], zmax: d.bounds[3], h: 3.2 };
       for (const [x, z, w, dd, h] of d.walls) addProp(x, z, w, dd, h, 'wall');
       for (const [x, z, w, dd, h] of d.furn) addProp(x, z, w, dd, h, 'furniture');
-      detectDoors();
+      buildGrid(); detectDoors();
       // spawn: nearest free spot to the requested point (spiral search)
       let sx = d.spawn[0], sz = d.spawn[1];
       if (!posFree(sx, sz, MOVE.radius + 0.05)) { outer: for (let r = 0.3; r < 6; r += 0.3) for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) { const tx = d.spawn[0] + Math.cos(a) * r, tz = d.spawn[1] + Math.sin(a) * r; if (posFree(tx, tz, MOVE.radius + 0.05)) { sx = tx; sz = tz; break outer; } } }
       MAP.spawn = { x: sx, z: sz, yaw: d.spawnYaw || 0 };
-      return;
+      rebuildStatic(); return;
     }
   }
   ROOM = { ...MAP.room };
-  MAP.build();
+  MAP.build(); buildGrid(); rebuildStatic();
 }
 // doorways = 0.8–1.7 m gaps between collinear wall pieces
 function detectDoors() {
   const walls = PROPS.filter(p => p.kind === 'wall');
-  for (const a of walls) for (const b of walls) {
-    if (a === b) continue;
-    if (Math.abs(a.z - b.z) < 0.25 && a.d < 0.9 && b.d < 0.9 && b.xmin > a.xmax) { const gap = b.xmin - a.xmax; if (gap >= 0.8 && gap <= 1.7 && !walls.some(w => w !== a && w !== b && w.xmin < b.xmin && w.xmax > a.xmax && Math.abs(w.z - a.z) < 0.6)) DOORS.push({ x: (a.xmax + b.xmin) / 2, z: a.z, axis: 'x' }); }
-    if (Math.abs(a.x - b.x) < 0.25 && a.w < 0.9 && b.w < 0.9 && b.zmin > a.zmax) { const gap = b.zmin - a.zmax; if (gap >= 0.8 && gap <= 1.7 && !walls.some(w => w !== a && w !== b && w.zmin < b.zmin && w.zmax > a.zmax && Math.abs(w.x - a.x) < 0.6)) DOORS.push({ x: a.x, z: (a.zmax + b.zmin) / 2, axis: 'z' }); }
-  }
+  // x-running walls: sort by z then x; consecutive pieces on the same line with a 0.8–1.7 m gap = doorway
+  const hx = walls.filter(w => w.d < 0.9 && w.w > w.d).sort((a, b) => a.z - b.z || a.xmin - b.xmin);
+  const hz = walls.filter(w => w.w < 0.9 && w.d > w.w).sort((a, b) => a.x - b.x || a.zmin - b.zmin);
+  const scan = (arr, key, lo, hi, axis) => {
+    for (let k = 0; k < arr.length; k++) {
+      const a = arr[k]; let next = null;
+      for (let m = k + 1; m < arr.length && Math.abs(arr[m][key] - a[key]) < 0.25; m++) { const b = arr[m]; if (b[lo] > a[hi] - 0.01 && (!next || b[lo] < next[lo])) next = b; }
+      if (!next) continue;
+      const gap = next[lo] - a[hi];
+      if (gap >= 0.8 && gap <= 1.7) DOORS.push(axis === 'x' ? { x: (a[hi] + next[lo]) / 2, z: a.z, axis } : { x: a.x, z: (a[hi] + next[lo]) / 2, axis });
+    }
+  };
+  scan(hx, 'z', 'xmin', 'xmax', 'x'); scan(hz, 'x', 'zmin', 'zmax', 'z');
 }
 function inZone(x, z, zone) {
   if (MAP.zones === 'dist') { const d = Math.hypot(x - MAP.spawn.x, z - MAP.spawn.z); return zone === 'near' ? d < 10 : zone === 'mid' ? d >= 8 && d < 18 : d >= 16; }
   return (MAP.zones[zone] || []).some(r => x >= r.xmin && x <= r.xmax && z >= r.zmin && z <= r.zmax);
 }
+// uniform 2 m grid over PROPS so collision / rays / cover queries stay O(local) on maps with thousands of props
+const GRID = { cs: 2, x0: 0, z0: 0, nx: 1, nz: 1, cells: [], stamp: 0 };
+function buildGrid() {
+  GRID.x0 = ROOM.xmin; GRID.z0 = ROOM.zmin; GRID.nx = Math.max(1, Math.ceil((ROOM.xmax - ROOM.xmin) / GRID.cs)); GRID.nz = Math.max(1, Math.ceil((ROOM.zmax - ROOM.zmin) / GRID.cs));
+  GRID.cells = Array.from({ length: GRID.nx * GRID.nz }, () => []);
+  for (const p of PROPS) {
+    p._s = 0;
+    const i0 = clamp(Math.floor((p.xmin - GRID.x0) / GRID.cs), 0, GRID.nx - 1), i1 = clamp(Math.floor((p.xmax - GRID.x0) / GRID.cs), 0, GRID.nx - 1);
+    const j0 = clamp(Math.floor((p.zmin - GRID.z0) / GRID.cs), 0, GRID.nz - 1), j1 = clamp(Math.floor((p.zmax - GRID.z0) / GRID.cs), 0, GRID.nz - 1);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) GRID.cells[j * GRID.nx + i].push(p);
+  }
+  COVER_CACHE.clear();
+}
+function propsIn(xmin, xmax, zmin, zmax, out = []) {
+  const st = ++GRID.stamp; out.length = 0;
+  const i0 = clamp(Math.floor((xmin - GRID.x0) / GRID.cs), 0, GRID.nx - 1), i1 = clamp(Math.floor((xmax - GRID.x0) / GRID.cs), 0, GRID.nx - 1);
+  const j0 = clamp(Math.floor((zmin - GRID.z0) / GRID.cs), 0, GRID.nz - 1), j1 = clamp(Math.floor((zmax - GRID.z0) / GRID.cs), 0, GRID.nz - 1);
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) for (const p of GRID.cells[j * GRID.nx + i]) if (p._s !== st) { p._s = st; out.push(p); }
+  return out;
+}
+const COVER_CACHE = new Map();
 function posFree(x, z, r) { const [cx, cz] = collide(x, z, r); return Math.hypot(cx - x, cz - z) < 0.02; }
 // cover spots: hide behind props (away from player spawn) + door-frame peeks
 function coverSpots(zone) {
-  const spots = []; const sp = MAP.spawn; const off = 0.6;
+  if (COVER_CACHE.has(zone)) return COVER_CACHE.get(zone);
+  const spots = []; const sp = MAP.spawn; const off = 0.6; COVER_CACHE.set(zone, spots);
   for (const p of PROPS) {
     if (p.kind === 'wall' || !inZone(p.x, p.z, zone) || Math.hypot(p.x - sp.x, p.z - sp.z) < 4) continue;   // never right on top of the player
     const dx = p.x - sp.x, dz = p.z - sp.z;
@@ -417,10 +481,11 @@ function coverSpots(zone) {
   }
   return spots;
 }
+const _q1 = [], _q2 = [], _q3 = [];
 // 2D segment vs props (inflated by r): true if blocked
 function segBlocked(ax, az, bx, bz, r = BOT.r) {
   const dx = bx - ax, dz = bz - az;
-  for (const p of PROPS) {
+  for (const p of propsIn(Math.min(ax, bx) - r, Math.max(ax, bx) + r, Math.min(az, bz) - r, Math.max(az, bz) + r, _q1)) {
     let t0 = 0, t1 = 1, ok = true;
     for (const [o, d, mn, mx] of [[ax, dx, p.xmin - r, p.xmax + r], [az, dz, p.zmin - r, p.zmax + r]]) {
       if (Math.abs(d) < 1e-9) { if (o < mn || o > mx) { ok = false; break; } continue; }
@@ -433,7 +498,7 @@ function segBlocked(ax, az, bx, bz, r = BOT.r) {
 // movement collision: circle (x,z,r) vs props & room; returns corrected position
 function collide(x, z, r) {
   x = clamp(x, ROOM.xmin + r, ROOM.xmax - r); z = clamp(z, ROOM.zmin + r, ROOM.zmax - r);
-  for (const p of PROPS) {
+  for (const p of propsIn(x - r - 0.05, x + r + 0.05, z - r - 0.05, z + r + 0.05, _q2)) {
     const cx = clamp(x, p.xmin, p.xmax), cz = clamp(z, p.zmin, p.zmax);
     let dx = x - cx, dz = z - cz; const d2 = dx * dx + dz * dz;
     if (d2 < r * r) {
@@ -456,7 +521,22 @@ function rayBox(o, d, p) {
   }
   return tmin;
 }
-function rayProps(o, d) { let t = Infinity; for (const p of PROPS) t = Math.min(t, rayBox(o, d, p)); return t; }
+// ray vs props: walk the 2 m grid along the ray (2D DDA) and stop at the first cell that yields a hit
+function rayProps(o, d, maxT = 150) {
+  const cs = GRID.cs; let i = Math.floor((o[0] - GRID.x0) / cs), j = Math.floor((o[2] - GRID.z0) / cs);
+  const sx = Math.sign(d[0]), sz = Math.sign(d[2]);
+  const tdx = sx ? cs / Math.abs(d[0]) : Infinity, tdz = sz ? cs / Math.abs(d[2]) : Infinity;
+  let tx = sx ? ((sx > 0 ? (i + 1) * cs : i * cs) + GRID.x0 - o[0]) / d[0] : Infinity;
+  let tz = sz ? ((sz > 0 ? (j + 1) * cs : j * cs) + GRID.z0 - o[2]) / d[2] : Infinity;
+  let best = Infinity, tcell = 0; const st = ++GRID.stamp;
+  while (tcell < maxT) {
+    if (i >= 0 && j >= 0 && i < GRID.nx && j < GRID.nz) for (const p of GRID.cells[j * GRID.nx + i]) { if (p._s === st) continue; p._s = st; const t = rayBox(o, d, p); if (t < best) best = t; }
+    const tnext = Math.min(tx, tz); if (best <= tnext) break;
+    if (tx < tz) { i += sx; tcell = tx; tx += tdx; } else { j += sz; tcell = tz; tz += tdz; }
+    if ((i < -1 && sx <= 0) || (j < -1 && sz <= 0) || (i > GRID.nx && sx >= 0) || (j > GRID.nz && sz >= 0)) break;
+  }
+  return best;
+}
 // ray vs segment capsule: returns {dist, t}
 function segRay(o, d, a, b) {
   const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], w = [a[0] - o[0], a[1] - o[1], a[2] - o[2]];
@@ -496,9 +576,11 @@ const COLORS = {
 // ---------------------------------------------------------------- tracking targets (laser modes)
 // Operator body geometry. Head centre = eye height (1.60 m standing / 1.05 m crouched) so your crosshair at
 // headline is exactly on the enemy head, as in Siege. Offsets are [dx, y] with lean rotating about the body centre.
+const BOT_SIZES = { s: 0.75, m: 1.0, l: 1.3 };
 function opGeom(crouch, lean) {
-  const headY = MOVE.eyeStand + (MOVE.eyeCrouch - MOVE.eyeStand) * crouch;
-  const r = 0.27, headR = 0.15, bottom = 0.2, top = headY - 0.17;
+  const k = BOT_SIZES[settings.botsize] || 1;
+  const headY = MOVE.eyeStand + (MOVE.eyeCrouch - MOVE.eyeStand) * crouch;   // fixed regardless of size
+  const r = 0.27 * k, headR = 0.15 * k, bottom = 0.2, top = headY - headR - 0.02;
   const hh = Math.max(0.02, (top - bottom) / 2 - r), cy = (top + bottom) / 2;
   const sn = Math.sin(-lean), cs = Math.cos(lean);
   return { r, headR, hh, cy, a: [-sn * hh, cy - hh * cs], b: [sn * hh, cy + hh * cs], head: [sn * (headY - cy), cy + (headY - cy) * cs] };
@@ -997,7 +1079,7 @@ function frame(now) {
   gl.uniformMatrix4fv(U.uProj, false, perspective(game.aimFov, aspect, 0.05, 250));
   gl.uniformMatrix4fv(U.uView, false, view.m); gl.uniform3fv(U.uCam, eye); gl.uniform1f(U.uFog, 1);
   draw(meshRoom, modelTRS((ROOM.xmin + ROOM.xmax) / 2, ROOM.h / 2, (ROOM.zmin + ROOM.zmax) / 2, ROOM.xmax - ROOM.xmin, ROOM.h, ROOM.zmax - ROOM.zmin), COLORS.wall, 2, 0);
-  if (game.combat || !game.running) for (const p of PROPS) draw(meshBox, modelTRS(p.x, p.h / 2, p.z, p.w, p.h, p.d), p.kind === 'crate' ? COLORS.crate : p.kind === 'wall' ? COLORS.propwall : p.kind === 'furniture' ? COLORS.furniture : COLORS.pillar, 1, 0);
+  if (game.combat || !game.running) for (const s of STATIC) draw(s.mesh, IDENT, s.kind === 'crate' ? COLORS.crate : s.kind === 'wall' ? COLORS.propwall : s.kind === 'furniture' ? COLORS.furniture : COLORS.pillar, 1, 0);
   for (const T of game.targets) {
     if (T.kind === 'op') {
       const g = opGeom(T.crouch, T.lean); const col = T.hit ? COLORS.bodyHit : (T.flash ? [1, 0.9, 0.5] : COLORS.body);
@@ -1032,10 +1114,10 @@ function frame(now) {
 
 // ---------------------------------------------------------------- boot
 loadSettings(); settings.scope = (SIGHTS[settings.sight] || SIGHTS['2.5']).zoom; selectedMode = MODES.some(m => m.id === settings.mode) ? settings.mode : 'cqb';
-buildMap('hall'); loadMapData(); buildModeList(); updateSensInfo(); showBest();
-for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'map', 'recoil', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
+buildMap('hall'); loadMapData('oregon1f'); buildModeList(); updateSensInfo(); showBest();
+for (const id of [...SIMPLE_IDS, 'sight', 'reticle', 'ammomode', 'adsmode', 'crouchmode', 'leanmode', 'bots', 'map', 'recoil', 'botsize', 'invert', ...Object.values(ADS_IDS)]) $(id).addEventListener('input', readSettings);
 for (const id of ['difficulty', 'duration']) $(id).addEventListener('change', () => { readSettings(); showBest(); });
-$('start').addEventListener('click', async () => { startRun(); await requestLock(); });
+$('start').addEventListener('click', async () => { if (MAPS[$('map').value]?.data && !MAP_DATA[$('map').value]) { $('start').disabled = true; await loadMapData($('map').value); $('start').disabled = false; } startRun(); await requestLock(); });
 $('again').addEventListener('click', async () => { startRun(); await requestLock(); });
 $('close-results').addEventListener('click', () => { $('results').classList.add('hidden'); });
 canvas.addEventListener('click', async () => { if (game.running && !locked) await requestLock(); });
