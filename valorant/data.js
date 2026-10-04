@@ -33,7 +33,7 @@ const MOVE = {
   friction: 35,      // m/s² with no input (→ deadzone ≈ 0.11 s, stop ≈ 0.155 s)
   counter: 38,       // m/s² when the input opposes your velocity (→ deadzone ≈ 0.104 s, stop ≈ 0.142 s)
   airAccel: 5,       // m/s² air steering (approx)
-  jumpV: 3.26,       // m/s → apex ≈ 0.52 m (approx: jump height has no public value; halved after play-testing)
+  jumpV: 2.30,       // m/s → apex ≈ 0.26 m (approx: jump height has no public value; halved twice after play-testing)
   airStep: 0.25,     // m – mid-air ledge grab margin above the feet
   tuck: 0.32,        // m – crouching in the air lifts the legs (crouch-jump onto 1.0 m crates)
   gravity: 10.3,     // m/s² (approx)
@@ -132,3 +132,30 @@ const BOT_DIFF = {
 };
 const BOT_NAMES = ['KESTREL', 'NOVA', 'RIFT', 'SABLE', 'ORBIT', 'MOTH', 'QUILL', 'VESPER', 'TALON', 'EMBER', 'HALO', 'GRIT', 'ZEPHYR', 'CINDER', 'PIKE'];
 const BOT_GUNS = ['vandal', 'phantom', 'vandal', 'phantom', 'spectre', 'bulldog', 'sheriff', 'guardian', 'marshal'];
+
+// ---------------------------------------------------------------- first-person gun kick (visual only, approx)
+// What the weapon model does when it fires: back = slide toward the camera (m), up = muzzle climb (deg), roll (deg),
+// side = random yaw (deg), k = spring stiffness (higher = snappier return). Purely cosmetic: aim and bullets follow the
+// recoil model above, not this.
+const KICK_CLASS = {
+  RIFLE: { back: 0.032, up: 3.5, roll: 1.2, side: 0.6, k: 260 },
+  SMG: { back: 0.018, up: 2.0, roll: 0.8, side: 0.7, k: 320 },
+  HEAVY: { back: 0.026, up: 2.4, roll: 1.0, side: 0.8, k: 240 },
+  SIDEARM: { back: 0.028, up: 8, roll: 2.0, side: 0.6, k: 230 },
+  SNIPER: { back: 0.085, up: 9, roll: 3.0, side: 0.8, k: 90 },
+  MELEE: { back: -0.09, up: -10, roll: 12, side: 4, k: 160 },
+};
+const KICK = {
+  vandal: { back: 0.036, up: 4.2, roll: 1.6, side: 0.7, k: 250 },
+  phantom: { back: 0.028, up: 3.0, roll: 1.0, side: 0.5, k: 280 },
+  bulldog: { back: 0.034, up: 3.8, roll: 1.2, side: 0.6, k: 260 },
+  guardian: { back: 0.05, up: 6.5, roll: 1.8, side: 0.6, k: 200 },
+  sheriff: { back: 0.05, up: 17, roll: 3.5, side: 1.0, k: 150 },
+  ghost: { back: 0.02, up: 5, roll: 1.2, side: 0.4, k: 260 },
+  bandit: { back: 0.04, up: 12, roll: 2.6, side: 0.8, k: 180 },
+  frenzy: { back: 0.016, up: 4, roll: 1.4, side: 1.0, k: 300 },
+  odin: { back: 0.03, up: 2.6, roll: 1.2, side: 1.0, k: 230 },
+  operator: { back: 0.11, up: 12, roll: 3.5, side: 0.8, k: 70 },
+  outlaw: { back: 0.09, up: 10, roll: 3.0, side: 0.8, k: 85 },
+};
+function kickOf(key) { return KICK[key] || KICK_CLASS[WEAPONS[key].cls] || KICK_CLASS.RIFLE; }

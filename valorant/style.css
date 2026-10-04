@@ -305,3 +305,4 @@ footer{text-align:center;color:var(--dim2);font-size:11px;margin-top:24px;line-h
 .xh-link{margin-top:10px}
 @media(max-width:960px){.xh-wrap{grid-template-columns:1fr}.xh-prev{align-items:flex-start}}
 :root{color-scheme:dark}
+.kf.other{opacity:.85}

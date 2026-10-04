@@ -3,11 +3,11 @@
 'use strict';
 
 // ---------------------------------------------------------------- settings form
-const SEL = ['map', 'primary', 'secondary', 'bots', 'botDiff', 'botMove', 'botSpeed', 'ammo', 'killGoal', 'minutes', 'zoomTime', 'enemyColor', 'adsmode', 'crouchmode', 'walkmode', 'drillGun'];
+const SEL = ['map', 'primary', 'secondary', 'bots', 'botDiff', 'botMove', 'botSpeed', 'ammo', 'killGoal', 'minutes', 'zoomTime', 'enemyColor', 'adsmode', 'crouchmode', 'walkmode', 'drillGun', 'drillSec'];
 function fillWeaponSelects() {
   const opt = k => { const w = WEAPONS[k]; return `<option value="${k}">${w.name} · ${w.cls}</option>`; };
   $('primary').innerHTML = PRIMARIES.map(opt).join(''); $('secondary').innerHTML = SECONDARIES.map(opt).join('');
-  $('drillGun').innerHTML = [...PRIMARIES, ...SECONDARIES].map(opt).join('');
+  $('drillGun').innerHTML = PRIMARIES.map(opt).join(''); $('drillSec').innerHTML = SECONDARIES.map(opt).join('');
 }
 function loadSettings() {
   loadSettingsRaw();
@@ -193,7 +193,7 @@ function buildModeList() {
     b.onclick = () => { selectedMode = m.id; settings.mode = m.id; saveSettings(); buildModeList(); showBest(); };
     box.appendChild(b);
   }
-  $('drillgun-l').classList.toggle('dim', !curMode().weapon);
+  $('drillgun-l').classList.toggle('dim', !curMode().weapon); $('drillsec-l').classList.toggle('dim', !curMode().weapon);
 }
 function curLabelText() {
   const m = curMode();
@@ -238,7 +238,7 @@ function showResults(complete) {
     }
     if (game.shots >= 10) tip = stopRate < 60 ? t('tip.stop') : hs < 20 ? t('tip.head') : acc < 25 ? t('tip.spray') : t('tip.good');
   } else {
-    score = Math.round(game.score); acc = played > 0 ? game.onTargetTime / played * 100 : 0; const fa = game.fireTime > 0 ? game.onTargetTime / game.fireTime * 100 : 0;
+    score = Math.round(game.score); acc = played > 0 ? game.onTargetTime / played * 100 : 0; const fa = game.fireTime > 0 ? game.onFireTime / game.fireTime * 100 : 0;
     rows = [[t('res.ontarget'), `${acc.toFixed(1)}%`], [t('res.fireacc'), `${fa.toFixed(1)}%`], [t('res.ontime'), `${game.onTargetTime.toFixed(2)}s / ${played.toFixed(1)}s`]];
   }
   let best = null; try { best = JSON.parse(localStorage.getItem(bestKey())); } catch (e) {}
@@ -284,7 +284,7 @@ window.addEventListener('wheel', (e) => { if (KEYBIND.waiting && e.target === KE
 function renderKeyHints() {
   const k = a => `<kbd>${keyName(settings.keys[a])}</kbd>`;
   $('keys-dm').innerHTML = [`${k('forward')}${k('left')}${k('back')}${k('right')} ${t('kb.move')}`, `${k('walk')} ${t('kb.walk')}`, `${k('crouch')} ${t('kb.crouch')}`, `${k('jump')} ${t('kb.jump')}`, `${k('fire')} ${t('kb.fire')}`, `${k('ads')} ${t('kb.ads')}`, `${k('reload')} ${t('kb.reload')}`, `${k('primary')}${k('secondary')}${k('knife')} ${t('kb.slots')}`, `${k('scoreboard')} ${t('kb.scoreboard')}`, `${k('restart')} ${t('kb.restart')}`, `<kbd>ESC</kbd> ${t('k.menu')}`].map(x => `<div>${x}</div>`).join('');
-  $('keys-lab').innerHTML = [`${k('fire')} ${t('k.fire.lab')}`, `${k('forward')}${k('left')}${k('back')}${k('right')} ${t('kb.move')}`, `${k('restart')} ${t('kb.restart')}`, `<kbd>ESC</kbd> ${t('k.menu')}`].map(x => `<div>${x}</div>`).join('');
+  $('keys-lab').innerHTML = [`${t('k.fire.lab')}`, `${k('fire')} ${t('kb.fire')}`, `${k('primary')}${k('secondary')} ${t('kb.slots')}`, `${k('forward')}${k('left')}${k('back')}${k('right')} ${t('kb.move')}`, `${k('restart')} ${t('kb.restart')}`, `<kbd>ESC</kbd> ${t('k.menu')}`].map(x => `<div>${x}</div>`).join('');
   const n = a => keyName(settings.keys[a]);
   $('h-keys').textContent = ` · ${n('walk')} ${t('kb.walk')} · ${n('crouch')} ${t('kb.crouch')} · ${n('jump')} ${t('kb.jump')} · ${n('scoreboard')} ${t('kb.scoreboard')} · ESC ${t('k.menu')}`;
 }
