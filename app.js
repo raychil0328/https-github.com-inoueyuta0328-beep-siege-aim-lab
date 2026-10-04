@@ -572,7 +572,7 @@ function raySphere(o, d, c, r) {
 // ---------------------------------------------------------------- game state
 const game = {
   running: false, yaw: 0, pitch: 0, ads: false, firing: false,
-  t: 0, timeLeft: 60, onTargetTime: 0, fireTime: 0, score: 0, hitStreak: 0,
+  t: 0, timeLeft: 60, onTargetTime: 0, onFireTime: 0, fireTime: 0, score: 0, hitStreak: 0,
   shots: 0, hits: 0, headshots: 0, kills: 0, damage: 0,
   mode: MODES[0], diff: 1, targets: [], bots: [],
   aimFov: 90, adsBlend: 0, combat: false,
@@ -982,7 +982,7 @@ function shareText(score, acc) {
 function startRun() {
   readSettings();
   game.mode = MODES.find(m => m.id === selectedMode); game.combat = game.mode.group === 'combat'; game.diff = curDiff(); game.dur = curDur();
-  Object.assign(game, { t: 0, timeLeft: game.dur, onTargetTime: 0, fireTime: 0, score: 0, hitStreak: 0, shots: 0, hits: 0, headshots: 0, kills: 0, damage: 0,
+  Object.assign(game, { t: 0, timeLeft: game.dur, onTargetTime: 0, onFireTime: 0, fireTime: 0, score: 0, hitStreak: 0, shots: 0, hits: 0, headshots: 0, kills: 0, damage: 0,
     ads: false, adsBlend: 0, firing: false, yaw: 0, pitch: 0, visionTimer: 1.5, px: 0, pz: 5.5, crouchHeld: false, crouch: 0, lean: 0, leanToggle: 0, ammo: WEAPON.mag, reloading: 0, fireCd: 0, shotIdx: 0, impacts: [], hitMarker: 0, muzzle: 0, killT: 0, walkToggle: false, walkSlow: false }); RECENT.length = 0;
   input.dx = input.dy = 0; fps.sum = 0; fps.n = 0;
   buildMap(game.combat ? settings.map : 'hall'); game.targets = []; game.bots = [];
@@ -1005,7 +1005,7 @@ function showResults(complete) {
     acc = game.shots ? game.hits / game.shots * 100 : 0;
     rows = [[t('res.kills'), game.kills], [t('res.hs'), game.headshots], [t('res.acc'), `${acc.toFixed(1)}% (${game.hits}/${game.shots})`], [t('res.dmg'), game.damage], [t('res.kpm'), (game.kills / Math.max(played, 1) * 60).toFixed(1)]];
   } else {
-    acc = played > 0 ? game.onTargetTime / played * 100 : 0; const fireAcc = game.fireTime > 0 ? game.onTargetTime / game.fireTime * 100 : 0;
+    acc = played > 0 ? game.onTargetTime / played * 100 : 0; const fireAcc = game.fireTime > 0 ? game.onFireTime / game.fireTime * 100 : 0;
     rows = [[t('res.ontarget'), `${acc.toFixed(1)}%`], [t('res.fireacc'), `${fireAcc.toFixed(1)}%`], [t('res.ontime'), `${game.onTargetTime.toFixed(2)}s / ${played.toFixed(1)}s`]];
   }
   let best = null; try { best = JSON.parse(localStorage.getItem(bestKey())); } catch (e) {}
@@ -1187,8 +1187,10 @@ function frame(now) {
     } else {
       updateTargets(dt);
       for (const T of game.targets) { T.hit = T.active && T.rayHit(eye, view.f); if (T.hit) onTarget = true; }
-      if (game.firing) { game.fireTime += dt; if (onTarget) { game.onTargetTime += dt; game.hitStreak += dt; game.score += dt * 100 * (1 + Math.min(game.hitStreak, 2) * 0.25) * game.diff; } else game.hitStreak = 0; } else game.hitStreak = 0;
-      $('hit-flash').classList.toggle('on', game.firing && onTarget);
+      // scored whenever the crosshair is on the target (holding fire is not required); firing accuracy is kept separately
+      if (game.firing) { game.fireTime += dt; if (onTarget) game.onFireTime += dt; }
+      if (onTarget) { game.onTargetTime += dt; game.hitStreak += dt; game.score += dt * 100 * (1 + Math.min(game.hitStreak, 2) * 0.25) * game.diff; } else game.hitStreak = 0;
+      $('hit-flash').classList.toggle('on', onTarget);
     }
     // HUD
     $('h-time').textContent = Math.max(0, game.timeLeft).toFixed(1);
