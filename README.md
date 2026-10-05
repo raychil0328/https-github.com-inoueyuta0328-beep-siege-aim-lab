@@ -1,4 +1,4 @@
-# SIEGE AIM TRAINER
+# ブラウザで動くエイム練習サイト（R6S）/ Browser Aim Trainer (R6S)
 
 Rainbow Six Siege の感度・ADS 倍率を忠実に再現した、ブラウザ動作のトラッキングエイム / 動体視力トレーナー（KovaaK's 風）。
 

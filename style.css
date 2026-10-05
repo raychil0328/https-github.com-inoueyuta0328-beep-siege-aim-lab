@@ -226,3 +226,16 @@ footer .disclaimer{color:var(--chalk);font-size:12.5px}
 #hitmark i{position:absolute;left:-12px;top:-1.5px;width:24px;height:3px;background:#fff;box-shadow:0 0 3px #000}
 #hitmark i:nth-child(1){transform:rotate(45deg)}#hitmark i:nth-child(2){transform:rotate(-45deg)}
 #hitmark.head i{background:#ff3b3b}
+
+/* shared brand: Japanese name (the stencil face has no kana) + game in the accent colour; game switcher */
+.world{font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;color:var(--ink2);margin-bottom:4px}
+.logo.jp{font-family:var(--body);font-weight:700;font-size:34px;letter-spacing:.01em;line-height:1.2}
+.logo.jp .brand{font-family:var(--disp);font-size:30px;letter-spacing:.04em;margin-left:2px}
+.games{display:flex;align-items:center;font-size:12px;color:var(--chalk-dim);gap:0}
+.games span{margin-right:8px}
+.games a,.games b{padding:6px 10px;border:1px solid var(--chalk-dim);color:var(--chalk);text-decoration:none;font-family:var(--mono);font-size:12px}
+.games a+b,.games b+a{border-left:0}
+.games b{background:var(--chalk);color:var(--board);font-weight:500}
+.games a:hover{border-color:var(--chalk);color:#fff}
+@media(max-width:900px){.logo.jp{font-size:24px}.logo.jp .brand{font-size:21px}.tools{flex-wrap:wrap}}
+.title-strip .world{padding-left:34px}

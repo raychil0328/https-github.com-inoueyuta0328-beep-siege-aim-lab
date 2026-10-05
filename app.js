@@ -1,4 +1,4 @@
-/* SIEGE AIM TRAINER — R6S-style tracking / combat trainer
+/* ブラウザで動くエイム練習サイト（R6S）/ Browser Aim Trainer (R6S) — R6S-style tracking / combat trainer
    - WebGL2 renderer, uncapped (syncs to display refresh: 360Hz+ monitors run 360fps+)
    - Raw mouse input: pointer lock w/ unadjustedMovement + pointerrawupdate
    - Sensitivity: exact R6S formulas (hipfire / per-zoom ADS / vertical FOV)

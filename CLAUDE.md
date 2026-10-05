@@ -1,13 +1,18 @@
-# SIEGE AIM TRAINER — 引き継ぎメモ（クラウドセッションの要約）
+# ブラウザで動くエイム練習サイト（R6S）/ Browser Aim Trainer (R6S)（旧 SIEGE AIM TRAINER）— 引き継ぎメモ
 
 ブラウザで動く R6S（Rainbow Six Siege）風エイムトレーナー。静的サイト（`index.html` / `app.js` / `i18n.js` / `config.js` / `style.css`）。
 公開 URL: https://xs288120.xsrv.jp/R6SAIM/（Xserver、メイン）／ https://raychil0328.github.io/https-github.com-inoueyuta0328-beep-siege-aim-lab/（GitHub Pages）
 `main` に push すると `.github/workflows/deploy-xserver.yml` が Xserver へ SSH + rsync で転送し、`deploy.yml` が `gh-pages` ブランチへ公開する。
 
+## ブランド（2026-10-05〜）
+- VALORANT 版と同じブランドに統一: **ブラウザで動くエイム練習サイト（対応ゲーム）/ Browser Aim Trainer (対応ゲーム)**。この版は（R6S）。ロゴは i18n の `brand` / `brand.game` で言語切替。「SIEGE AIM TRAINER」の名前は使わない（Ubisoft の商標を製品名にしない）。フッターに「Ubisoft とは関係がなく、承認・後援を受けていません」。
+- ヘッダー右上に「対応ゲーム: VALORANT | R6S」の切り替え（VALORANT 版 https://xs288120.xsrv.jp/VALOAIM/ ）。ハッシュタグ #BrowserAimTrainer。見た目（作戦ボード風）は R6S 版のまま。
+- OGP は `python tools/build_ogp.py`（紙のシート＋ブランド名＋マップ戦のピクトグラム）。
+
 ## オーナーの方針（これまでの会話で確定したこと）
 - **実在マップの再現はやめた。** r6maps トレース → ゲームデータ抽出（Oregon）まで試したが「再現度がひどい」と判断し全削除。以後は**完全オリジナルの室内マップ**のみ。Ubisoft のゲームメッシュは公開しない（派生データも不要になった）。
 - マップは「広い部屋にオブジェクト」ではなく **5〜7 m の小部屋を格子状に刻み、ずらしたドアで繋ぐ**。カバーは**頭だけ出る高さ**を基本にする。
-- メニューは「MAP COMBAT（マップを選ぶだけ。シナリオ一覧は不要）」と「DRILLS（リコイルなしの動体視力・シンプルエイム）」の 2 本。**「AIM LAB」という表記は使わない**（既存製品と名前が被る）。製品名は SIEGE AIM TRAINER。
+- メニューは「MAP COMBAT（マップを選ぶだけ。シナリオ一覧は不要）」と「DRILLS（リコイルなしの動体視力・シンプルエイム）」の 2 本。**「AIM LAB」という表記は使わない**（既存製品と名前が被る）。製品名は上記ブランドに変更済み。
 - 日本語 / 英語 UI。全文字列は `i18n.js`、要素は `data-i18n` / `data-i18n-html`、JS は `t(key)`。
 - ADS・リーンの動きは「もっさり」が正解（速すぎると指摘された）。リコイルは最初の実装の 2 倍。
 - 根拠のない数値を「再現」と言わない。出典がない値は設定で選べるようにして、注記に「公開値なし」と書く。
