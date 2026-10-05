@@ -1,12 +1,12 @@
 # ブラウザで動くエイム練習サイト（R6S）/ Browser Aim Trainer (R6S)（旧 SIEGE AIM TRAINER）— 引き継ぎメモ
 
 ブラウザで動く R6S（Rainbow Six Siege）風エイムトレーナー。静的サイト（`index.html` / `app.js` / `i18n.js` / `config.js` / `style.css`）。
-公開 URL: https://xs288120.xsrv.jp/R6SAIM/（Xserver、メイン）／ https://raychil0328.github.io/https-github.com-inoueyuta0328-beep-siege-aim-lab/（GitHub Pages）
+公開 URL: https://raychil.jp/aim/r6s/（Xserver、メイン。旧 https://xs288120.xsrv.jp/R6SAIM/ は 301 転送）。対応ゲームの入口は https://raychil.jp/aim/／ https://raychil0328.github.io/https-github.com-inoueyuta0328-beep-siege-aim-lab/（GitHub Pages）
 `main` に push すると `.github/workflows/deploy-xserver.yml` が Xserver へ SSH + rsync で転送し、`deploy.yml` が `gh-pages` ブランチへ公開する。
 
 ## ブランド（2026-10-05〜）
 - VALORANT 版と同じブランドに統一: **ブラウザで動くエイム練習サイト（対応ゲーム）/ Browser Aim Trainer (対応ゲーム)**。この版は（R6S）。ロゴは i18n の `brand` / `brand.game` で言語切替。「SIEGE AIM TRAINER」の名前は使わない（Ubisoft の商標を製品名にしない）。フッターに「Ubisoft とは関係がなく、承認・後援を受けていません」。
-- ヘッダー右上に「対応ゲーム: VALORANT | R6S」の切り替え（VALORANT 版 https://xs288120.xsrv.jp/VALOAIM/ ）。ハッシュタグ #BrowserAimTrainer。見た目（作戦ボード風）は R6S 版のまま。
+- ヘッダー右上に「対応ゲーム: VALORANT | R6S」の切り替え（VALORANT 版 https://raychil.jp/aim/valorant/ ）。ハッシュタグ #BrowserAimTrainer。見た目（作戦ボード風）は R6S 版のまま。
 - OGP は `python tools/build_ogp.py`（紙のシート＋ブランド名＋マップ戦のピクトグラム）。
 
 ## オーナーの方針（これまでの会話で確定したこと）
@@ -52,7 +52,7 @@
 - 初回ガイド `#guide`: 4 ステップ。`localStorage['sal-guide-seen']` が無ければ自動表示、ヘッダーの「使い方」で再表示。
 - スコア履歴: `sal-hist-…`（`bestKey()` の `sal-best-` を置き換えたキー）に直近 30 回 `{s,a,d}`。結果画面とベスト行にインライン SVG の折れ線。
 - X 共有: `https://x.com/intent/post` を開くだけ（SDK なし）。完走時のみ表示。
-- OGP: `og:image` は Xserver の絶対 URL（`https://xs288120.xsrv.jp/R6SAIM/img/ogp.png`）。
+- OGP: `og:image` は Xserver の絶対 URL（`https://raychil.jp/aim/r6s/img/ogp.png`）。
 
 ## 任意機能（config.js）
 - `goatcounter`: GoatCounter サイトコード。PV / ユニーク + プレイ開始イベント `run/combat/<map>`, `run/<drill>`。
@@ -76,6 +76,6 @@
 
 ## ローカル開発・デプロイ
 - ビルド不要。`python -m http.server 8080` → http://localhost:8080（`.claude/launch.json` に `siege-aim-lab` として登録済み）。
-- Xserver: サーバー xs288120（sv16593.xserver.jp）。デプロイは SSH（ポート 10022、ユーザー xs288120）+ rsync で `xs288120.xsrv.jp/public_html/R6SAIM/` へ。FTP は国外 IP（GitHub Actions）から接続できないため使わない。Secret `XSERVER_SSH_KEY`（パスフレーズなし ed25519、ラベル siege-aim-deploy）。SSH 設定の国外アクセス制限は OFF が必要。この鍵はサーバーの `~/.ssh/authorized_keys` で `restrict,command="perl ~/bin/rrsync -wo …/public_html/R6SAIM"` に制限済み（R6SAIM への書き込み専用。シェル・他フォルダ・ダウンロード不可）。ワークフローの転送先は `./`。Xserver のパネルで鍵を再登録すると制限が外れるので、その場合は付け直す（バックアップ `authorized_keys.bak-20261003`）。ドメインのトップ（`xs288120.xsrv.jp/`）と `/skirmish1/`（GGSPACE）は別サイトなので触らない。`horameter.com` / `typenova.jp` はこのアプリに使わない。
+- Xserver: サーバー xs288120（sv16593.xserver.jp）。デプロイは SSH（ポート 10022、ユーザー xs288120）+ rsync で `raychil.jp/public_html/aim/r6s/` へ（鍵は rrsync -wo でこのフォルダに固定）。FTP は国外 IP（GitHub Actions）から接続できないため使わない。Secret `XSERVER_SSH_KEY`（パスフレーズなし ed25519、ラベル siege-aim-deploy）。SSH 設定の国外アクセス制限は OFF が必要。この鍵はサーバーの `~/.ssh/authorized_keys` で `restrict,command="perl ~/bin/rrsync -wo …/public_html/R6SAIM"` に制限済み（R6SAIM への書き込み専用。シェル・他フォルダ・ダウンロード不可）。ワークフローの転送先は `./`。Xserver のパネルで鍵を再登録すると制限が外れるので、その場合は付け直す（バックアップ `authorized_keys.bak-20261003`）。ドメインのトップ（`xs288120.xsrv.jp/`）と `/skirmish1/`（GGSPACE）は別サイトなので触らない。`horameter.com` / `typenova.jp` はこのアプリに使わない。
 - CLAUDE.md / README.md / `.claude/` / `.github/` は Xserver に上げない。
 - push はオーナーの指示があるときだけ。
