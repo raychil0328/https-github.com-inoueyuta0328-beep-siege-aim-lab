@@ -72,7 +72,8 @@ const settings = {
   scope: 2.5, sight: '2.5', reticle: '#ff2b2b', ammomode: 'mag', adsmode: 'hold', crouchmode: 'toggle', leanmode: 'hold', bots: 'auto', map: 'ware', recoil: 1, botsize: 'm', objects: 'large', menuMode: 'combat', difficultyLab: 1, durationLab: 60, invert: false,
   difficulty: 1, duration: 60, mode: 'cqb',
 };
-const ADS_IDS = { '1': 'ads1', '1.5': 'ads15', '2': 'ads2', '2.5': 'ads25', '3': 'ads3', '12': 'ads12' };
+// ids avoid ads1/ads2/ads3: ad-blocker lists (EasyList ###ads1 etc.) hide elements with those ids
+const ADS_IDS = { '1': 'mag1', '1.5': 'mag15', '2': 'mag2', '2.5': 'mag25', '3': 'mag3', '12': 'mag12' };
 const SIMPLE_IDS = ['dpi', 'fov', 'sensH', 'sensV', 'msmu', 'xfactor'];
 
 function loadSettings() {

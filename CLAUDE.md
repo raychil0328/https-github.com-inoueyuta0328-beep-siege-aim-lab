@@ -84,3 +84,7 @@
 - Xserver: サーバー xs288120（sv16593.xserver.jp）。デプロイは SSH（ポート 10022、ユーザー xs288120）+ rsync で `raychil.jp/public_html/aim/r6s/` へ（鍵は rrsync -wo でこのフォルダに固定）。FTP は国外 IP（GitHub Actions）から接続できないため使わない。Secret `XSERVER_SSH_KEY`（パスフレーズなし ed25519、ラベル siege-aim-deploy）。SSH 設定の国外アクセス制限は OFF が必要。この鍵はサーバーの `~/.ssh/authorized_keys` で `restrict,command="perl ~/bin/rrsync -wo …/public_html/R6SAIM"` に制限済み（R6SAIM への書き込み専用。シェル・他フォルダ・ダウンロード不可）。ワークフローの転送先は `./`。Xserver のパネルで鍵を再登録すると制限が外れるので、その場合は付け直す（バックアップ `authorized_keys.bak-20261003`）。ドメインのトップ（`xs288120.xsrv.jp/`）と `/skirmish1/`（GGSPACE）は別サイトなので触らない。`horameter.com` / `typenova.jp` はこのアプリに使わない。
 - CLAUDE.md / README.md / `.claude/` / `.github/` は Xserver に上げない。
 - push はオーナーの指示があるときだけ。
+
+## 広告ブロッカー対策（2026-10-07）
+- 要素の id / class に広告っぽい名前（`ads1` `ads2` `ads3` `ad-banner` `.ads` など）を使わない。uBlock Origin などが使う EasyList の汎用ルール（例 `###ads1`）で、要素が勝手に非表示になる。R6S の ADS 倍率別の入力欄が `#ads1/#ads2/#ads3` だったため、広告ブロッカー利用者には 1.0x / 2.0x / 3.0x の入力欄が消えていた（ユーザー報告）。`mag1` などに改名して解決。
+- 新しい id / class を足したら EasyList・Fanboy・uBlock filters の汎用ルールと照合する（2026-10-07 時点で両サイトとも該当なし）。
