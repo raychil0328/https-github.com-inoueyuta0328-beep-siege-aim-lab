@@ -57,6 +57,8 @@
 - 動作環境の案内（2026-10-07〜）: フッターに折りたたみ「動作環境と注意点」（i18n `env.h` / `env.l1`〜`env.l6`）。Chrome / Edge 以外（Chromium 判定は `config.js`）またはスマホで開くと、ヘッダー下に `#envwarn` の注意を表示（PC の非 Chromium は × で閉じると `localStorage['env-warn-hidden']` で以後非表示、スマホは毎回表示）。フッターに問い合わせ先 X @raychil_mashima（i18n `contact`）。
 - R6S 版は自動のキャッシュ対策がないので、`index.html` の `?v=YYYYMMDD` を JS/CSS を変えたら更新する。
 
+- GameSettings.ini 取り込み（2026-10-07〜）: 共通設定の `#ini-box`（ボタン or メニューへドラッグ&ドロップ）。`importIni()` が `[INPUT]` の MouseYaw/PitchSensitivity・MouseSensitivityMultiplierUnit・XFactorAiming、ADSMouseUseSpecific=1 なら ADSMouseSensitivity1x/1xHalf/2x/2xHalf/3x/12x（=1/1.5/2/2.5/3/12x）、0 なら ADSMouseSensitivityGlobal（古い形式は AimDownSightsMouse）、`DefaultFOV`（垂直、60〜90 に丸め）、InvertMouseAxisY、ToggleAim を反映。DPI はファイルに無いので手入力。ブラウザ内で読むだけで送信しない。イベント `r6s/ini-import`。
+
 ## 任意機能（config.js）
 - `goatcounter`: GoatCounter サイトコード（`raychil`、管理画面 https://raychil.goatcounter.com/ 、2026-10-07〜有効）。PV / ユニーク + プレイ開始イベント `r6s/run/combat/<map>`, `r6s/run/<drill>`（VALORANT 版と同じサイトで集計しても区別できるよう `r6s/` を付ける）。localhost からのアクセスは数えられない。
 - `donate`: 支援リンク（フッターとリザルトに表示）。空なら何も読み込まれない。

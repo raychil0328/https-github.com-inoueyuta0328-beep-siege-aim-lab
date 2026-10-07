@@ -1323,5 +1323,45 @@ let guideSeen = false; try { guideSeen = !!localStorage.getItem('sal-guide-seen'
 if (!guideSeen) guideOpen();
 canvas.addEventListener('click', async () => { if (game.running && !locked) await requestLock(); });
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b)); document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('hidden', p.id !== b.dataset.tab)); }));
+// ---- import R6S GameSettings.ini (Documents\My Games\Rainbow Six - Siege\<id>\GameSettings.ini), read locally only
+function parseIni(text) {
+  const kv = {};
+  for (const line of text.split(/\r?\n/)) { const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*([^;\r\n]*?)\s*$/); if (m) kv[m[1]] = m[2]; }
+  return kv;
+}
+function importIni(text) {
+  const kv = parseIni(text), num = k => (kv[k] != null && kv[k] !== '' && isFinite(+kv[k])) ? +kv[k] : null;
+  const msg = $('ini-msg'); msg.classList.remove('hidden', 'err');
+  if (num('MouseYawSensitivity') == null) { msg.classList.add('err'); msg.textContent = t('ini.bad'); return; }
+  const set = (id, v) => { if (v != null) $(id).value = v; };
+  set('sensH', num('MouseYawSensitivity')); set('sensV', num('MousePitchSensitivity') ?? num('MouseYawSensitivity'));
+  set('msmu', num('MouseSensitivityMultiplierUnit')); set('xfactor', num('XFactorAiming'));
+  // per-zoom ADS values when "ADSMouseUseSpecific" is on, otherwise the global one (older files only have AimDownSightsMouse)
+  const zoomKey = { '1': '1x', '1.5': '1xHalf', '2': '2x', '2.5': '2xHalf', '3': '3x', '12': '12x' };
+  const global = num('ADSMouseSensitivityGlobal') ?? num('AimDownSightsMouse');
+  const specific = num('ADSMouseUseSpecific') === 1;
+  const ads = {};
+  for (const z in ADS_IDS) { ads[z] = (specific ? num('ADSMouseSensitivity' + zoomKey[z]) : null) ?? global; set(ADS_IDS[z], ads[z]); }
+  const fov = num('DefaultFOV'); if (fov != null) set('fov', Math.round(clamp(fov, 60, 90)));
+  if (num('InvertMouseAxisY') != null) $('invert').checked = num('InvertMouseAxisY') === 1;
+  if (num('ToggleAim') != null) $('adsmode').value = num('ToggleAim') === 1 ? 'toggle' : 'hold';
+  readSettings();
+  const adsTxt = ['1', '1.5', '2', '2.5', '3', '12'].map(z => `${z}x ${ads[z] ?? '-'}`).join(' / ');
+  msg.innerHTML = `<b>${t('ini.ok')}</b>: ${t('ini.sens')} H${settings.sensH} / V${settings.sensV} · ${t('ini.ads')} ${adsTxt} · ${t('ini.fov')} ${settings.fov}`
+    + ` · ${t('ini.inv')} ${settings.invert ? 'ON' : 'OFF'} · ${t('ini.toggle')} ${settings.adsmode === 'toggle' ? 'ON' : 'OFF'}<br>${t('ini.dpi')}`;
+  track('r6s/ini-import');
+}
+function readIniFile(file) {
+  if (!file || file.size > 512 * 1024) return;
+  const r = new FileReader(); r.onload = () => importIni(String(r.result)); r.readAsText(file);
+}
+$('ini-btn').addEventListener('click', () => $('ini-file').click());
+$('ini-file').addEventListener('change', (e) => { readIniFile(e.target.files[0]); e.target.value = ''; });
+{ // drop anywhere on the menu
+  const box = $('ini-box'), menu = $('menu');
+  menu.addEventListener('dragover', (e) => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); box.classList.add('drag'); } });
+  menu.addEventListener('dragleave', (e) => { if (e.target === menu || !menu.contains(e.relatedTarget)) box.classList.remove('drag'); });
+  menu.addEventListener('drop', (e) => { if (!e.dataTransfer.files.length) return; e.preventDefault(); box.classList.remove('drag'); readIniFile(e.dataTransfer.files[0]); box.scrollIntoView({ block: 'center', behavior: 'smooth' }); });
+}
 game.aimFov = settings.fov;
 requestAnimationFrame(frame);
