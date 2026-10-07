@@ -1,12 +1,12 @@
 # ブラウザで動くエイム練習サイト（R6S）/ Browser Aim Trainer (R6S)（旧 SIEGE AIM TRAINER）— 引き継ぎメモ
 
 ブラウザで動く R6S（Rainbow Six Siege）風エイムトレーナー。静的サイト（`index.html` / `app.js` / `i18n.js` / `config.js` / `style.css`）。
-公開 URL: https://raychil.jp/aim/r6s/（Xserver、メイン。旧 https://xs288120.xsrv.jp/R6SAIM/ は 301 転送）。対応ゲームの入口は https://raychil.jp/aim/／ https://raychil0328.github.io/https-github.com-inoueyuta0328-beep-siege-aim-lab/（GitHub Pages）
+公開 URL: https://raychil.jp/aim/cgaim/（2026-10-07〜。ゲームの商標を URL に入れない方針で /aim/r6s/ から変更。実体のフォルダは aim/r6s のままで、aim/.htaccess が /aim/cgaim/ を配信し /aim/r6s/ を 301 転送。Xserver、メイン。旧 https://xs288120.xsrv.jp/R6SAIM/ は 301 転送）。対応ゲームの入口は https://raychil.jp/aim/／ https://raychil0328.github.io/https-github.com-inoueyuta0328-beep-siege-aim-lab/（GitHub Pages）
 `main` に push すると `.github/workflows/deploy-xserver.yml` が Xserver へ SSH + rsync で転送し、`deploy.yml` が `gh-pages` ブランチへ公開する。
 
 ## ブランド（2026-10-05〜）
 - VALORANT 版と同じブランドに統一: **ブラウザで動くエイム練習サイト（対応ゲーム）/ Browser Aim Trainer (対応ゲーム)**。この版は（R6S）。ロゴは i18n の `brand` / `brand.game` で言語切替。「SIEGE AIM TRAINER」の名前は使わない（Ubisoft の商標を製品名にしない）。フッターに「Ubisoft とは関係がなく、承認・後援を受けていません」。
-- ヘッダー右上に「対応ゲーム: VALORANT | R6S」の切り替え（VALORANT 版 https://raychil.jp/aim/valorant/ ）。ハッシュタグ #BrowserAimTrainer。見た目（作戦ボード風）は R6S 版のまま。
+- ヘッダー右上に「対応ゲーム: VALORANT | R6S」の切り替え（VALORANT 版 https://raychil.jp/aim/valoaim/ ）。ハッシュタグ #BrowserAimTrainer。見た目（作戦ボード風）は R6S 版のまま。
 - OGP は `python tools/build_ogp.py`（紙のシート＋ブランド名＋マップ戦のピクトグラム）。
 
 ## オーナーの方針（これまでの会話で確定したこと）
@@ -53,7 +53,7 @@
 - 初回ガイド `#guide`: 4 ステップ。`localStorage['sal-guide-seen']` が無ければ自動表示、ヘッダーの「使い方」で再表示。
 - スコア履歴: `sal-hist-…`（`bestKey()` の `sal-best-` を置き換えたキー）に直近 30 回 `{s,a,d}`。結果画面とベスト行にインライン SVG の折れ線。
 - X 共有: `https://x.com/intent/post` を開くだけ（SDK なし）。完走時のみ表示。
-- OGP: `og:image` は Xserver の絶対 URL（`https://raychil.jp/aim/r6s/img/ogp.png`）。
+- OGP: `og:image` は Xserver の絶対 URL（`https://raychil.jp/aim/cgaim/img/ogp.png`）。
 
 - 動作環境の案内（2026-10-07〜）: フッターに折りたたみ「動作環境と注意点」（i18n `env.h` / `env.l1`〜`env.l6`）。Chrome / Edge 以外（Chromium 判定は `config.js`）またはスマホで開くと、ヘッダー下に `#envwarn` の注意を表示（PC の非 Chromium は × で閉じると `localStorage['env-warn-hidden']` で以後非表示、スマホは毎回表示）。フッターに問い合わせ先 X @raychil_mashima（i18n `contact`）。
 - R6S 版は自動のキャッシュ対策がないので、`index.html` の `?v=YYYYMMDD` を JS/CSS を変えたら更新する。
