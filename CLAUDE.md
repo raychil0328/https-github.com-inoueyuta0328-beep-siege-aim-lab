@@ -54,6 +54,9 @@
 - X 共有: `https://x.com/intent/post` を開くだけ（SDK なし）。完走時のみ表示。
 - OGP: `og:image` は Xserver の絶対 URL（`https://raychil.jp/aim/r6s/img/ogp.png`）。
 
+- 動作環境の案内（2026-10-07〜）: フッターに折りたたみ「動作環境と注意点」（i18n `env.h` / `env.l1`〜`env.l6`）。Chrome / Edge 以外（Chromium 判定は `config.js`）またはスマホで開くと、ヘッダー下に `#envwarn` の注意を表示（PC の非 Chromium は × で閉じると `localStorage['env-warn-hidden']` で以後非表示、スマホは毎回表示）。フッターに問い合わせ先 X @raychil_mashima（i18n `contact`）。
+- R6S 版は自動のキャッシュ対策がないので、`index.html` の `?v=YYYYMMDD` を JS/CSS を変えたら更新する。
+
 ## 任意機能（config.js）
 - `goatcounter`: GoatCounter サイトコード（`raychil`、管理画面 https://raychil.goatcounter.com/ 、2026-10-07〜有効）。PV / ユニーク + プレイ開始イベント `r6s/run/combat/<map>`, `r6s/run/<drill>`（VALORANT 版と同じサイトで集計しても区別できるよう `r6s/` を付ける）。localhost からのアクセスは数えられない。
 - `donate`: 支援リンク（フッターとリザルトに表示）。空なら何も読み込まれない。

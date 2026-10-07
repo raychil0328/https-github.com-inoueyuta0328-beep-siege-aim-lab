@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@500&family=Saira+Stencil+One&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20261007">
 </head>
 <body>
 <canvas id="gl"></canvas>
@@ -63,6 +63,7 @@
       <div class="lang"><button data-lang="ja">日本語</button><button data-lang="en">English</button></div>
     </div>
   </header>
+  <div id="envwarn" class="envwarn hidden" role="note"><span id="envwarn-t"></span><button type="button" id="envwarn-x" aria-label="close">×</button></div>
 
   <nav class="modeswitch">
     <button id="ms-combat" class="ms on" data-mm="combat">
@@ -272,12 +273,13 @@
     <span class="disclaimer" data-i18n="footer"></span>
     · <a href="https://github.com/raychil0328/https-github.com-inoueyuta0328-beep-siege-aim-lab" target="_blank" rel="noopener">GitHub</a>
     <a id="donate-footer" class="donate hidden" href="#" target="_blank" rel="noopener"></a>
+    <details class="envinfo"><summary data-i18n="env.h"></summary><ul><li data-i18n="env.l1"></li><li data-i18n="env.l2"></li><li data-i18n="env.l3"></li><li data-i18n="env.l4"></li><li data-i18n="env.l5"></li><li data-i18n="env.l6"></li></ul></details>
     <div><span class="contact"><span data-i18n="contact"></span> <a href="https://x.com/raychil_mashima" target="_blank" rel="noopener">X @raychil_mashima</a></span></div>
   </footer>
 </div>
 
-<script src="config.js"></script>
-<script src="i18n.js"></script>
-<script src="app.js"></script>
+<script src="config.js?v=20261007"></script>
+<script src="i18n.js?v=20261007"></script>
+<script src="app.js?v=20261007"></script>
 </body>
 </html>

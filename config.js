@@ -17,3 +17,19 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!SITE.donate) return;
   for (const id of ['donate-footer', 'donate-results']) { const a = document.getElementById(id); if (a) { a.href = SITE.donate; a.textContent = SITE.donateLabel; a.classList.remove('hidden'); } }
 });
+
+// ---- browser notice: Chrome / Edge give raw (unaccelerated) pointer lock and pointerrawupdate; others still work
+document.addEventListener('DOMContentLoaded', () => {
+  const box = document.getElementById('envwarn'); if (!box) return;
+  const ua = navigator.userAgent;
+  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
+  const brands = (navigator.userAgentData && navigator.userAgentData.brands) || [];
+  const chromium = brands.some(b => /Chromium/.test(b.brand)) || (/Chrome\//.test(ua) && !/Firefox|FxiOS|OPR\//.test(ua));
+  if (!mobile && chromium) return;
+  let hidden = false; try { hidden = !mobile && localStorage.getItem('env-warn-hidden') === '1'; } catch (e) {}
+  if (hidden) return;
+  const key = mobile ? 'env.warn.mobile' : 'env.warn.other', span = document.getElementById('envwarn-t');
+  span.dataset.i18n = key; span.textContent = typeof t === 'function' ? t(key) : '';
+  box.classList.remove('hidden');
+  document.getElementById('envwarn-x').addEventListener('click', () => { box.classList.add('hidden'); try { localStorage.setItem('env-warn-hidden', '1'); } catch (e) {} });
+});
