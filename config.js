@@ -2,12 +2,12 @@
 const SITE = {
   // Visitor / play counter: GoatCounter site code (https://www.goatcounter.com – free, no cookies, no consent banner needed).
   // Example: 'siege-aim-trainer' for https://siege-aim-trainer.goatcounter.com
-  goatcounter: '',
+  goatcounter: 'raychil',
   // Support / donation link shown in the footer and on the results screen when set (Ko-fi, Buy Me a Coffee, GitHub Sponsors, OFUSE ...).
   donate: '',
   donateLabel: 'Support ☕',
 };
-// ---- analytics (page views + one event per run: run/<mode>/<map>) ----
+// ---- analytics (page views + one event per run: r6s/run/<mode>/<map>) ----
 function track(path) { try { if (window.goatcounter && SITE.goatcounter) window.goatcounter.count({ path, title: path, event: true }); } catch (e) {} }
 if (SITE.goatcounter) {
   const s = document.createElement('script'); s.async = true; s.src = 'https://gc.zgo.at/count.js';

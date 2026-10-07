@@ -55,7 +55,7 @@
 - OGP: `og:image` は Xserver の絶対 URL（`https://raychil.jp/aim/r6s/img/ogp.png`）。
 
 ## 任意機能（config.js）
-- `goatcounter`: GoatCounter サイトコード。PV / ユニーク + プレイ開始イベント `run/combat/<map>`, `run/<drill>`。
+- `goatcounter`: GoatCounter サイトコード（`raychil`、管理画面 https://raychil.goatcounter.com/ 、2026-10-07〜有効）。PV / ユニーク + プレイ開始イベント `r6s/run/combat/<map>`, `r6s/run/<drill>`（VALORANT 版と同じサイトで集計しても区別できるよう `r6s/` を付ける）。localhost からのアクセスは数えられない。
 - `donate`: 支援リンク（フッターとリザルトに表示）。空なら何も読み込まれない。
 
 ## 未着手・提案済み
