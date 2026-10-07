@@ -60,6 +60,8 @@
 
 - GameSettings.ini 取り込み（2026-10-07〜）: 共通設定の `#ini-box`（ボタン or メニューへドラッグ&ドロップ）。`importIni()` が `[INPUT]` の MouseYaw/PitchSensitivity・MouseSensitivityMultiplierUnit・XFactorAiming、ADSMouseUseSpecific=1 なら ADSMouseSensitivity1x/1xHalf/2x/2xHalf/3x/12x（=1/1.5/2/2.5/3/12x）、0 なら ADSMouseSensitivityGlobal（古い形式は AimDownSightsMouse）、`DefaultFOV`（垂直、60〜90 に丸め）、InvertMouseAxisY、ToggleAim を反映。DPI はファイルに無いので手入力。ブラウザ内で読むだけで送信しない。イベント `r6s/ini-import`。
 
+- PC 負荷スコア（2026-10-07）: `tools/loadbench/`（measure.ps1 = CPU・GPU 3D・コミットメモリを N 秒計測、cdp.mjs = Edge の DevTools で試合を自動開始、bench-game.ps1 = 実ゲームを同じ方法で計測）。スコア = 0.4×CPU 増加% + 0.4×GPU% + 0.2×RAM 増加の総メモリ比%（0〜100、低いほど軽い）。実測（Ryzen 7 5700X / RTX 4070 / 32GB / 240Hz、Edge・試合中・240fps）: R6S 版 4.9（CPU +4.4pt・GPU 7%・RAM +0.55GB・Edge 706MB）、VALORANT 版 3.7（CPU +3.4pt・GPU 5%・RAM +0.55GB・Edge 714MB）。計測はローカルのコピーで行う（GoatCounter に入れない）。
+
 ## 任意機能（config.js）
 - `goatcounter`: GoatCounter サイトコード（`raychil`、管理画面 https://raychil.goatcounter.com/ 、2026-10-07〜有効）。PV / ユニーク + プレイ開始イベント `r6s/run/combat/<map>`, `r6s/run/<drill>`（VALORANT 版と同じサイトで集計しても区別できるよう `r6s/` を付ける）。localhost からのアクセスは数えられない。
 - `donate`: 支援リンク（フッターとリザルトに表示）。空なら何も読み込まれない。
