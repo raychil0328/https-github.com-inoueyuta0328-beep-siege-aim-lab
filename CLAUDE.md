@@ -91,3 +91,7 @@
 ## 広告ブロッカー対策（2026-10-07）
 - 要素の id / class に広告っぽい名前（`ads1` `ads2` `ads3` `ad-banner` `.ads` など）を使わない。uBlock Origin などが使う EasyList の汎用ルール（例 `###ads1`）で、要素が勝手に非表示になる。R6S の ADS 倍率別の入力欄が `#ads1/#ads2/#ads3` だったため、広告ブロッカー利用者には 1.0x / 2.0x / 3.0x の入力欄が消えていた（ユーザー報告）。`mag1` などに改名して解決。
 - 新しい id / class を足したら EasyList・Fanboy・uBlock filters の汎用ルールと照合する（2026-10-07 時点で両サイトとも該当なし）。
+
+## アクセス解析（2026-10-09〜）
+- GoatCounter（`raychil`、VALORANT 版と共用、イベントは `r6s/` 付き）に加えて、VALORANT 版と同じ自前カウンター `count.php`（日ごとの回数だけ・Cookie/IP なし、データは公開領域外 `raychil.jp/r6saim-data/YYYY-MM.json`）。送るのは pv / uv（ブラウザごとに 1 日 1 回、`localStorage['sal-seen']`）/ run/... / finish / ini-import。localhost では送らない。
+- 閲覧は VALORANT 版の統計ページ（`https://raychil.jp/aim/valoaim/stats.php?k=<VALORANT/tools/stats-key.txt の値>`）で両サイトを並べて見る。
