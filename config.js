@@ -3,12 +3,23 @@ const SITE = {
   // Visitor / play counter: GoatCounter site code (https://www.goatcounter.com – free, no cookies, no consent banner needed).
   // Example: 'siege-aim-trainer' for https://siege-aim-trainer.goatcounter.com
   goatcounter: 'raychil',
+  // Self-hosted counter on the same server (count.php, same as the VALORANT version): daily totals only, no cookies, no IP. '' = off.
+  counter: 'count.php',
   // Support / donation link shown in the footer and on the results screen when set (Ko-fi, Buy Me a Coffee, GitHub Sponsors, OFUSE ...).
   donate: '',
   donateLabel: 'Support ☕',
 };
-// ---- analytics (page views + one event per run: r6s/run/<mode>/<map>) ----
-function track(path) { try { if (window.goatcounter && SITE.goatcounter) window.goatcounter.count({ path, title: path, event: true }); } catch (e) {} }
+// ---- analytics: GoatCounter (page views + events r6s/...) and the self-hosted counter (pv, uv, run/..., finish) ----
+const TRACK_ON = location.protocol.startsWith('http') && !/^(localhost|127\.)/.test(location.hostname);   // never count local testing
+function track(path) {
+  if (!TRACK_ON) return;
+  try { if (SITE.counter && navigator.sendBeacon) navigator.sendBeacon(`${SITE.counter}?e=${encodeURIComponent(path.replace(/^r6s\//, ''))}`); } catch (e) {}
+  try { if (window.goatcounter && SITE.goatcounter && path !== 'pv' && path !== 'uv') window.goatcounter.count({ path, title: path, event: true }); } catch (e) {}
+}
+if (TRACK_ON) {
+  track('pv');
+  try { const d = new Date().toISOString().slice(0, 10); if (localStorage.getItem('sal-seen') !== d) { localStorage.setItem('sal-seen', d); track('uv'); } } catch (e) {}
+}
 if (SITE.goatcounter) {
   const s = document.createElement('script'); s.async = true; s.src = 'https://gc.zgo.at/count.js';
   s.dataset.goatcounter = `https://${SITE.goatcounter}.goatcounter.com/count`; document.head.appendChild(s);

@@ -998,7 +998,7 @@ function startRun() {
   updateScopeUI();
 }
 function pauseToMenu() { game.running = false; game.firing = false; $('hud').classList.add('hidden'); $('menu').classList.remove('hidden'); if (game.t > 0.5) showResults(false); }
-function finishRun() { game.running = false; game.firing = false; if (document.pointerLockElement) document.exitPointerLock(); $('hud').classList.add('hidden'); $('menu').classList.remove('hidden'); showResults(true); }
+function finishRun() { track('r6s/finish'); game.running = false; game.firing = false; if (document.pointerLockElement) document.exitPointerLock(); $('hud').classList.add('hidden'); $('menu').classList.remove('hidden'); showResults(true); }
 function showResults(complete) {
   const played = game.dur - game.timeLeft; const score = Math.round(game.score);
   let rows = []; let acc = null;
