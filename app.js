@@ -593,7 +593,7 @@ const COLORS = {
 // ---------------------------------------------------------------- tracking targets (laser modes)
 // Operator body geometry. Head centre = eye height (1.60 m standing / 1.05 m crouched) so your crosshair at
 // headline is exactly on the enemy head, as in Siege. Offsets are [dx, y] with lean rotating about the body centre.
-const BOT_SIZES = { s: 0.75, m: 1.0, l: 1.3 };
+const BOT_SIZES = { xxs: 0.45, xs: 0.6, s: 0.75, m: 1.0, l: 1.3 };
 function opGeom(crouch, lean) {
   const k = BOT_SIZES[settings.botsize] || 1;
   const headY = MOVE.eyeStand + (MOVE.eyeCrouch - MOVE.eyeStand) * crouch;   // fixed regardless of size
