@@ -1,0 +1,97 @@
+# ブラウザで動くエイム練習サイト（R6S）/ Browser Aim Trainer (R6S)（旧 SIEGE AIM TRAINER）— 引き継ぎメモ
+
+ブラウザで動く R6S（Rainbow Six Siege）風エイムトレーナー。静的サイト（`index.html` / `app.js` / `i18n.js` / `config.js` / `style.css`）。
+公開 URL: https://raychil.jp/aim/cgaim/（2026-10-07〜。ゲームの商標を URL に入れない方針で /aim/r6s/ から変更。実体のフォルダは aim/r6s のままで、aim/.htaccess が /aim/cgaim/ を配信し /aim/r6s/ を 301 転送。Xserver、メイン。旧 https://xs288120.xsrv.jp/R6SAIM/ は 301 転送）。対応ゲームの入口は https://raychil.jp/aim/／ https://raychil0328.github.io/https-github.com-inoueyuta0328-beep-siege-aim-lab/（GitHub Pages）
+`main` に push すると `.github/workflows/deploy-xserver.yml` が Xserver へ SSH + rsync で転送し、`deploy.yml` が `gh-pages` ブランチへ公開する。
+
+## ブランド（2026-10-05〜）
+- VALORANT 版と同じブランドに統一: **ブラウザで動くエイム練習サイト（対応ゲーム）/ Browser Aim Trainer (対応ゲーム)**。この版は（R6S）。ロゴは i18n の `brand` / `brand.game` で言語切替。「SIEGE AIM TRAINER」の名前は使わない（Ubisoft の商標を製品名にしない）。フッターに「Ubisoft とは関係がなく、承認・後援を受けていません」。
+- ヘッダー右上に「対応ゲーム: VALORANT | R6S」の切り替え（VALORANT 版 https://raychil.jp/aim/valoaim/ ）。ハッシュタグ #BrowserAimTrainer。見た目（作戦ボード風）は R6S 版のまま。
+- OGP は `python tools/build_ogp.py`（紙のシート＋ブランド名＋マップ戦のピクトグラム）。
+
+## オーナーの方針（これまでの会話で確定したこと）
+- **実在マップの再現はやめた。** r6maps トレース → ゲームデータ抽出（Oregon）まで試したが「再現度がひどい」と判断し全削除。以後は**完全オリジナルの室内マップ**のみ。Ubisoft のゲームメッシュは公開しない（派生データも不要になった）。
+- マップは「広い部屋にオブジェクト」ではなく **5〜7 m の小部屋を格子状に刻み、ずらしたドアで繋ぐ**。カバーは**頭だけ出る高さ**を基本にする。
+- メニューは「MAP COMBAT（マップを選ぶだけ。シナリオ一覧は不要）」と「DRILLS（リコイルなしの動体視力・シンプルエイム）」の 2 本。**「AIM LAB」という表記は使わない**（既存製品と名前が被る）。製品名は上記ブランドに変更済み。
+- 日本語 / 英語 UI。全文字列は `i18n.js`、要素は `data-i18n` / `data-i18n-html`、JS は `t(key)`。
+- ADS・リーンの動きは「もっさり」が正解（速すぎると指摘された）。リコイルは最初の実装の 2 倍。
+- 根拠のない数値を「再現」と言わない。出典がない値は設定で選べるようにして、注記に「公開値なし」と書く。
+- BOT の湧きは被らない・偏らないこと（倒した直後に同じ場所、5 体が同じ場所、はダメ）。
+- オブジェクトが「じゃま」になりすぎないよう密度設定あり。
+- **強みは「軽さ」**: マッチング待ちや隙間時間に、ブラウザで即起動・即終了できること。重いライブラリ・大きな画像・起動を遅らせる演出は NG。新機能もこの前提で作る。
+- 画像は図解・ピクトグラム風（Codex の画像生成で作成）。サイトのデザインは「作戦ボード・ブリーフィング風」で、AI 生成っぽい見た目（紫グラデ、ガラス風カード、絵文字アイコン等）を避ける。
+- **規約・広告の方針（2026-10-07 調査）**: 広告はいずれ個人でスポンサーを取る予定。基準は `R6S/private/広告掲載基準.md`（Git 管理外）。NG: チート・マクロ・変換器、アカウント売買・ランク代行・ブースト、RMT・スキン賭博、公式／公認と誤認させる表現やロゴ。必須: 広告枠に「広告」「PR」、機能を有料・広告視聴の条件にしない、重い広告スクリプトやプレイ中の広告は入れない。ドメイン・SNS 名・タグにゲーム名を入れない（#BrowserAimTrainer を使う）。VALORANT 版は Riot 指定の Legal Jibber Jabber 表記（英語原文）をフッターに必ず残す。
+- 会話は日本語。コミット末尾の Co-Authored-By / Claude-Session 行は付けるが、モデル名をコード・コミット本文に書かない。
+
+## 主要な設計値（app.js）
+- **感度**: 腰だめ yaw[deg/count] = 水平感度 × MSMU × (180/π)/200（MSMU 0.02 で感度 1 あたり 0.005729°）。ADS = 腰だめ × clamp((ADS感度 × XFactorAiming) × 光学補正, 0, 1)。光学補正(感度) 1x 0.6 / ACOG 0.35、ADS FOV 補正 1x 0.9 / ACOG 0.35（Ubisoft 公式 "FOV and Input Sensitivity"）。1.5/2/3/12x は 1x と 2.5x を通る曲線で補間（`OPTIC`）。
+- **キャラ寸法 `opGeom`**: 頭の中心 = 目線高さ（立ち 1.60 m / しゃがみ 1.05 m）、頭半径 0.15、体カプセル 0.20〜1.43 m。BOT サイズ s/m/l は幅のみ（×0.75 / 1 / 1.3）、高さ不変。
+- **カバー高さ**: `HG = 1.45`（立ち BOT の頭だけ出る）、`CG = 0.95`（しゃがみ BOT の頭だけ出る）、`TALL = 2.4`（射線を切るラック）、全高の壁 = `ROOM.h`。
+- **移動 `MOVE`**: 通常 3.10 m/s、ダッシュ 5.00 m/s（3 スピード OP の計測値、Steam ガイド "Movement Speeds"）、しゃがみ 1.55。ADS 中の倍率（既定 0.92 = 2.85 m/s）と歩行キー速度（既定 1.55）は**公開値がないため設定項目**。ダッシュでリーン解除、しゃがみからダッシュで立つ。ADS 遷移 0.32〜0.55 s、リーン速度 5.5。
+- **武器**: 汎用 AR 800 RPM / 30 発 / 胴 40 頭 100 / リロード 2.4 s。リコイルは視点が跳ね上がり自動復帰なし。`settings.recoil` 倍率。弾薬 mag / infinite。
+- **サイト**: 12 種を実画像から SVG で描画（`SIGHTS`, `reticleSVG`, `scopeSVG` など）。ハウジングの外側は世界が見える。ACOG のシェブロン先端 = 照準点。
+- **キーバインド**: `DEFAULT_KEYS`（forward/back/left/right/sprint/crouch/leanL/leanR/walk/fire/ads/reload/restart）。`pressCode/releaseCode/isDown`。マウスは `Mouse0`〜`Mouse4`。操作タブで変更、`settings.keys` に保存。
+- **設定保存**: `localStorage['sal-settings']`。ベストスコアは `sal-best-<mode>[-<map>]-<diff>-<dur>`。
+
+## マップシステム
+- `MAPS[key] = { name(get→t), room{xmin,xmax,zmin,zmax,h}, spawn{x,z,yaw}, zones:'dist', build() }`。`hall` は DRILLS 用の内部マップ（一覧に出さない）。
+- ヘルパ: `cells({xs, zs, doorsX:[[z,x]], doorsZ:[[x,z]], gapsX, gapsZ})` で格子の全高壁を生成（ドア幅 1.2 m）。`lowX/lowZ`（kind 'cover' の半壁）、`box(x,z,w,d,h,kind,tier)`（tier 1 常時 / 2 標準 / 3 すべて = `settings.objects`）、`piece(cx,cz,type)`（lx/lz/lx2/lz2/hg/cg/tall/tallx/desk/deskz/cab/pil）、`pieces([...])`。
+- 現在のマップ: `ware`（ウェアハウス 5×5 室 + ドック）、`office`（5×5 室 + ロビー）、`bunker`（7×4 室 + 後方ギャラリー）、`atrium`（中央ホール + 両側ショップ）。
+- 注意: 幅 4 m の部屋に 2 m の半壁（lx2/lz2）を横置きすると両脇が 0.8 m になり通れない（プレイヤー半径 0.38）。6 m 幅で 3 m 壁は OK。ドア正面にカバーを置かない。
+- BOT: `coverSpots(zone)`（プロップ裏 hide + 両端 peek、ドア脇、床グリッド）、`spreadPick`（他 BOT・死体・直近 12 s の湧き/死亡地点・プレイヤーから `MIN_SEP = 4.5 m` 以上、遠い半分からランダム）、ゾーンが混んでいれば全体から借りる。`spawnPattern` は 1000 通りのシード付き初期配置。`Bot` 状態機械: hide / peek / headpeek / return / move。
+- 動線: `near` < 10 m、`mid` 8〜18 m、`far` ≥ 16 m（スポーンからの距離、`zones:'dist'`）。
+
+## テスト方法（Playwright + headless Chromium）
+- ローカル HTTP サーバーを立て、`page.evaluate(() => startRun())` で開始（START クリックはフルスクリーンで固まる）。
+- 検証項目の例: 全マップ × 密度 3 段階で、`posFree(spawn)`、ドアが塞がれていないか、スポーンからの 0.25 m 格子 flood fill で到達率 100%、BOT 10 体の最小間隔、3000 ステップ `bot.update` 後に stuck / 壁内の BOT がゼロ、40 回キル→リスポーンで死亡地点から ≥ 4.7 m。
+- キーバインド: 再割当・競合解消・Esc キャンセル・リロード後の永続化・Mouse4 割当を確認済み。
+
+## メニューのデザイン・画像・追加機能
+- デザイン: 暗いスレートの作戦ボードに紙のシートをテープで貼った見た目。トークンは `style.css` 冒頭（`--board` `--paper` `--ink` `--orange` `--slate` `--tape`）。フォントは Saira Stencil One（ロゴ・見出しボタン）/ BIZ UDPGothic（本文）/ IBM Plex Mono（数値・HUD）の 3 つだけ。HUD のレイアウトは変えていない。
+- AI っぽさを避けるルール: 紫/青グラデ・ガラス風・角丸カード・絵文字アイコン・装飾用の 01/02 番号・「〜 — 〜」型のコピーは使わない。テープやスタンプは意味がある所だけ（自己ベスト更新のスタンプなど）。
+- 画像: `img/mode-<id>.webp`（256px）, `img/guide-*.webp`（440px）, `img/ogp.png`（1200×630）。元 PNG は Codex CLI（デスクトップアプリ同梱の `codex.exe exec`、image_generation 機能）で生成し、`python tools/build_images.py <PNG フォルダ>` で縮小・余白トリム・OGP 合成。1 枚 3〜6 KB。
+- 初回ガイド `#guide`: 4 ステップ。`localStorage['sal-guide-seen']` が無ければ自動表示、ヘッダーの「使い方」で再表示。
+- スコア履歴: `sal-hist-…`（`bestKey()` の `sal-best-` を置き換えたキー）に直近 30 回 `{s,a,d}`。結果画面とベスト行にインライン SVG の折れ線。
+- X 共有: `https://x.com/intent/post` を開くだけ（SDK なし）。完走時のみ表示。
+- OGP: `og:image` は Xserver の絶対 URL（`https://raychil.jp/aim/cgaim/img/ogp.png`）。
+
+- 動作環境の案内（2026-10-07〜）: フッターに折りたたみ「動作環境と注意点」（i18n `env.h` / `env.l1`〜`env.l6`）。Chrome / Edge 以外（Chromium 判定は `config.js`）またはスマホで開くと、ヘッダー下に `#envwarn` の注意を表示（PC の非 Chromium は × で閉じると `localStorage['env-warn-hidden']` で以後非表示、スマホは毎回表示）。フッターに問い合わせ先 X @raychil_mashima（i18n `contact`）。
+- R6S 版は自動のキャッシュ対策がないので、`index.html` の `?v=YYYYMMDD` を JS/CSS を変えたら更新する。
+
+- GameSettings.ini 取り込み（2026-10-07〜）: 共通設定の `#ini-box`（ボタン or メニューへドラッグ&ドロップ）。`importIni()` が `[INPUT]` の MouseYaw/PitchSensitivity・MouseSensitivityMultiplierUnit・XFactorAiming、ADSMouseUseSpecific=1 なら ADSMouseSensitivity1x/1xHalf/2x/2xHalf/3x/12x（=1/1.5/2/2.5/3/12x）、0 なら ADSMouseSensitivityGlobal（古い形式は AimDownSightsMouse）、`DefaultFOV`（垂直、60〜90 に丸め）、InvertMouseAxisY、ToggleAim を反映。DPI はファイルに無いので手入力。ブラウザ内で読むだけで送信しない。イベント `r6s/ini-import`。
+
+- PC 負荷スコア（2026-10-07）: `tools/loadbench/`（measure.ps1 = CPU・GPU 3D・コミットメモリを N 秒計測、cdp.mjs = Edge の DevTools で試合を自動開始、bench-game.ps1 = 実ゲームを同じ方法で計測）。スコア = 0.4×CPU 増加% + 0.4×GPU% + 0.2×RAM 増加の総メモリ比%（0〜100、低いほど軽い）。実測（Ryzen 7 5700X / RTX 4070 / 32GB / 240Hz、Edge・試合中・240fps）: R6S 版 4.9（CPU +4.4pt・GPU 7%・RAM +0.55GB・Edge 706MB）、VALORANT 版 3.7（CPU +3.4pt・GPU 5%・RAM +0.55GB・Edge 714MB）。計測はローカルのコピーで行う（GoatCounter に入れない）。
+
+## 任意機能（config.js）
+- `goatcounter`: GoatCounter サイトコード（`raychil`、管理画面 https://raychil.goatcounter.com/ 、2026-10-07〜有効）。PV / ユニーク + プレイ開始イベント `r6s/run/combat/<map>`, `r6s/run/<drill>`（VALORANT 版と同じサイトで集計しても区別できるよう `r6s/` を付ける）。localhost からのアクセスは数えられない。
+- `donate`: 支援リンク（フッターとリザルトに表示）。空なら何も読み込まれない。
+
+## 未着手・提案済み
+- スコアを X に共有するボタン、OGP 画像と説明文、独自ドメイン化。
+- マネタイズ上の注意: SIEGE の名称を冠したまま収益化すると商標リスク。投げ銭までは問題になりにくい。広告は GitHub Pages 規約と AdSense 審査の都合で独自ドメイン + 別ホスティングが必要。
+
+## 会話の時系列（要約）
+1. R6S 風ブラウザ KovaaK: フルスクリーン・ポインタロック・FPS 無制限・生マウス入力・R6S 感度完全再現・トラッキング / 動体視力 → 公開（private リポジトリでは Pages 不可 → 公開リポジトリ作成）。
+2. マップ戦の追加: 移動（WASD/ダッシュ/しゃがみ/リーン）、カバーを使う BOT、リコイル、汎用武器、近/中/遠距離。射撃側にもオブジェクト。
+3. メニュー改善、リーンのホールド/トグル、BOT 数、12 種サイトの再現、弾薬無限、ダッシュでリーン解除、リコイル強度設定、リコイル 2 倍。
+4. マップ再現の試行（クラブハウス地下・バンク地下・オレゴン → r6maps トレース → ゲームデータ抽出 obj2map）と、ADS/リーンのもっさり化、しゃがみからダッシュ、1000 通り湧きパターン、BOT サイズ、ヘッドライン高さの修正（頭中心 = 目線）。
+5. 湧き被り対策（最遠点法）、オブジェクト密度、メニューを MAP COMBAT / AIM LAB に分割。
+6. **全マップ削除 → 完全オリジナル室内マップ 4 種**（頭出し高さのカバー）→ 小部屋に刻む → 湧きの均等化 + KILL / HEADSHOT 表示。
+7. 日本語 / 英語 UI、AIM LAB → DRILLS 改名、マップ戦シナリオ一覧を廃止。
+8. 歩行キー（Alt）と ADS 中の移動速度（設定化、出典明記）。
+9. サイト選択を上部へ、キーバインド変更機能。
+10. アクセス解析・支援リンク（config.js）、マネタイズの検討。
+
+## ローカル開発・デプロイ
+- ビルド不要。`python -m http.server 8080` → http://localhost:8080（`.claude/launch.json` に `siege-aim-lab` として登録済み）。
+- Xserver: サーバー xs288120（sv16593.xserver.jp）。デプロイは SSH（ポート 10022、ユーザー xs288120）+ rsync で `raychil.jp/public_html/aim/r6s/` へ（鍵は rrsync -wo でこのフォルダに固定）。FTP は国外 IP（GitHub Actions）から接続できないため使わない。Secret `XSERVER_SSH_KEY`（パスフレーズなし ed25519、ラベル siege-aim-deploy）。SSH 設定の国外アクセス制限は OFF が必要。この鍵はサーバーの `~/.ssh/authorized_keys` で `restrict,command="perl ~/bin/rrsync -wo …/public_html/R6SAIM"` に制限済み（R6SAIM への書き込み専用。シェル・他フォルダ・ダウンロード不可）。ワークフローの転送先は `./`。Xserver のパネルで鍵を再登録すると制限が外れるので、その場合は付け直す（バックアップ `authorized_keys.bak-20261003`）。ドメインのトップ（`xs288120.xsrv.jp/`）と `/skirmish1/`（GGSPACE）は別サイトなので触らない。`horameter.com` / `typenova.jp` はこのアプリに使わない。
+- CLAUDE.md / README.md / `.claude/` / `.github/` は Xserver に上げない。
+- push はオーナーの指示があるときだけ。
+
+## 広告ブロッカー対策（2026-10-07）
+- 要素の id / class に広告っぽい名前（`ads1` `ads2` `ads3` `ad-banner` `.ads` など）を使わない。uBlock Origin などが使う EasyList の汎用ルール（例 `###ads1`）で、要素が勝手に非表示になる。R6S の ADS 倍率別の入力欄が `#ads1/#ads2/#ads3` だったため、広告ブロッカー利用者には 1.0x / 2.0x / 3.0x の入力欄が消えていた（ユーザー報告）。`mag1` などに改名して解決。
+- 新しい id / class を足したら EasyList・Fanboy・uBlock filters の汎用ルールと照合する（2026-10-07 時点で両サイトとも該当なし）。
+
+## アクセス解析（2026-10-09〜）
+- GoatCounter（`raychil`、VALORANT 版と共用、イベントは `r6s/` 付き）に加えて、VALORANT 版と同じ自前カウンター `count.php`（日ごとの回数だけ・Cookie/IP なし、データは公開領域外 `raychil.jp/r6saim-data/YYYY-MM.json`）。送るのは pv / uv（ブラウザごとに 1 日 1 回、`localStorage['sal-seen']`）/ run/... / finish / ini-import。localhost では送らない。
+- 閲覧は VALORANT 版の統計ページ（`https://raychil.jp/aim/valoaim/stats.php?k=<VALORANT/tools/stats-key.txt の値>`）で両サイトを並べて見る。
