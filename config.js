@@ -44,3 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
   box.classList.remove('hidden');
   document.getElementById('envwarn-x').addEventListener('click', () => { box.classList.add('hidden'); try { localStorage.setItem('env-warn-hidden', '1'); } catch (e) {} });
 });
+
+// ---- installed as an app (Chrome / Edge "install page as app", start_url ./?src=app): count those launches separately
+try { if (TRACK_ON && (matchMedia('(display-mode: standalone)').matches || new URLSearchParams(location.search).get('src') === 'app')) track('r6s/app/launch'); } catch (e) {}
